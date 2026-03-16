@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Карась Кликер: Igroutka Edition</title>
+    <style>
+        :root {
+            --accent: #00f2ff; --gold: #ffcc00; --bg: #01080f; --glass: rgba(255, 255, 255, 0.1); 
+            --danger: #ff4d4d; --common: #ffffff; --rare: #0070dd; --epic: #a335ee; --legendary: #ff8000;
+        }
+        * { user-select: none; box-sizing: border-box; outline: none; transition: all 0.2s ease-out; -webkit-tap-highlight-color: transparent; }
+        body {
+            background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif;
+            margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; align-items: center;
+        }
+        #ocean { position: fixed; width: 100%; height: 100%; z-index: -2; background: radial-gradient(circle at center, #0a1f33 0%, #01080f 100%); }
+        
+        /* Уведомление */
+        #game-toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--accent); color: black; padding: 12px 30px; border-radius: 50px; font-weight: 900; z-index: 2000; transition: 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28); box-shadow: 0 0 20px var(--accent); }
+        #game-toast.active { top: 20px; }
+
+        .ui-top { text-align: center; margin-top: 15px; z-index: 5; }
+        #stats { font-size: clamp(2.5rem, 12vw, 4rem); font-weight: 900; margin: 0; text-shadow: 0 0 20px var(--accent); }
+        .crit-info { font-size: 0.9rem; color: var(--gold); margin-top: 5px; font-weight: bold; }
+        
+        .lvl-bar { width: 280px; height: 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin: 10px auto; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        #lvl-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00f2ff, #00ff88); box-shadow: 0 0 10px var(--accent); }
+
+        #game-scene { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; }
+        #pet-node { font-size: 70px; position: absolute; left: 15%; filter: drop-shadow(0 0 20px var(--accent)); animation: float 3s infinite ease-in-out; }
+        #karas-node { font-size: clamp(120px, 40vw, 180px); filter: drop-shadow(0 0 40px rgba(0,242,255,0.2)); cursor: pointer; z-index: 2; transition: 0.1s; }
+        #karas-node:active { transform: scale(0.8); }
+        
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-30px); } }
+
+        /* Боковые кнопки */
+        .side-menu { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; z-index: 15; }
+        .circle-btn { width: 65px; height: 65px; border-radius: 20px; font-size: 30px; background: var(--glass); border: 2px solid var(--accent); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px); }
+        .circle-btn:active { transform: scale(0.9); }
+
+        /* Анимация ящика */
+        #crate-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        #crate-visual { font-size: 150px; transition: 0.1s; }
+        .crate-shake { animation: shake 0.5s infinite; }
+        .crate-explode { animation: explode 0.6s forwards; }
+        @keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(10deg); } 75% { transform: rotate(-10deg); } }
+        @keyframes explode { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); filter: brightness(2); } 100% { transform: scale(0); opacity: 0; } }
+
+        .btn-group { position: fixed; bottom: 30px; display: flex; gap: 15px; z-index: 10; }
+        .nav-btn { background: var(--glass); border: 2px solid var(--accent); color: white; padding: 15px 30px; border-radius: 50px; cursor: pointer; font-weight: 800; backdrop-filter: blur(10px); text-transform: uppercase; letter-spacing: 1px; }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .overlay.active { display: flex; }
+        .modal { background: #050d14; width: 95%; max-width: 450px; height: 75vh; border-radius: 40px; border: 2px solid var(--accent); display: flex; flex-direction: column; overflow: hidden; }
+
+        .tabs { display: flex; background: rgba(255,255,255,0.02); padding: 10px; gap: 5px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; color: #555; cursor: pointer; font-weight: bold; background: none; border-radius: 15px; }
+        .tab-btn.active { background: var(--accent); color: black; }
+
+        .content { flex: 1; overflow-y: auto; padding: 20px; }
+        .item-card { background: rgba(255,255,255,0.03); margin-bottom: 12px; padding: 20px; border-radius: 25px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); }
+        .box-card { text-align: center; border: 2px solid rgba(255,255,255,0.1); padding: 25px; border-radius: 30px; margin-bottom: 20px; background: rgba(255,255,255,0.02); cursor: pointer; }
+
+        .price-text { color: var(--gold); font-weight: 900; font-size: 1.1rem; }
+        .pop { position: absolute; pointer-events: none; animation: floatUp 0.8s forwards; font-weight: 900; z-index: 1000; font-size: 1.5rem; }
+        @keyframes floatUp { to { opacity: 0; transform: translateY(-120px); } }
+    </style>
+</head>
+<body>
+
+<div id="game-toast">УВЕДОМЛЕНИЕ</div>
+<div id="ocean"></div>
+
+<div id="crate-overlay">
+    <div id="crate-visual">📦</div>
+    <h2 id="crate-label" style="margin-top:20px; letter-spacing:2px">ОТКРЫТИЕ...</h2>
+</div>
+
+<div class="ui-top">
+    <div id="stats">0</div>
+    <div class="crit-info">КРИТ: <span id="crit-val">0</span>%</div>
+    <div class="lvl-bar"><div id="lvl-fill"></div></div>
+    <div id="lvl-txt">УРОВЕНЬ: 1</div>
+</div>
+
+<div id="game-scene">
+    <div id="pet-node"></div>
+    <div id="karas-node">🐟</div>
+</div>
+
+<div class="side-menu">
+    <div class="circle-btn" onclick="openModal('wardrobe')" style="border-color: var(--gold)">👔</div>
+    <div class="circle-btn" onclick="openModal('pets-menu')">🐾</div>
+</div>
+
+<div class="btn-group">
+    <button class="nav-btn" onclick="openModal('shop')">🏪 МАГАЗИН</button>
+    <button class="nav-btn" style="border-color: var(--gold)" onclick="openModal('prestige')">✨ ПРЕСТИЖ</button>
+</div>
+
+<div class="overlay" id="shop-overlay" onclick="if(event.target == this) closeModal('shop')">
+    <div class="modal">
+        <div class="tabs">
+            <button class="tab-btn active" id="btn-u" onclick="setTab('u')">ПРОКАЧКА</button>
+            <button class="tab-btn" id="btn-b" onclick="setTab('b')">ЯЩИКИ</button>
+        </div>
+        <div id="shop-list" class="content"></div>
+    </div>
+</div>
+
+<div class="overlay" id="pets-menu-overlay" onclick="if(event.target == this) closeModal('pets-menu')">
+    <div class="modal">
+        <h3 style="text-align:center; margin-top:20px">ВАШИ ПИТОМЦЫ 🐾</h3>
+        <div id="pets-list-content" class="content"></div>
+    </div>
+</div>
+
+<div class="overlay" id="wardrobe-overlay" onclick="if(event.target == this) closeModal('wardrobe')">
+    <div class="modal">
+        <h3 style="text-align:center; margin-top:20px">ГАРДЕРОБ 👔</h3>
+        <div id="wardrobe-list" class="content"></div>
+    </div>
+</div>
+
+<div class="overlay" id="prestige-overlay" onclick="if(event.target == this) closeModal('prestige')">
+    <div class="modal" style="padding: 30px; text-align: center; justify-content: center;">
+        <h2 style="color: var(--gold)">МОРСКОЙ ПРЕСТИЖ</h2>
+        <p>Икринок: <b id="egg-count">0</b></p>
+        <p>Будет получено: <b id="pending-eggs" style="color:var(--gold)">0</b></p>
+        <button class="nav-btn" style="width:100%; margin-top:20px" onclick="doPrestige()">ОБНУЛИТЬ И УСИЛИТЬСЯ</button>
+    </div>
+</div>
+
+<script>
+    const DEFAULT_GAME = {
+        coins: 0, clickP: 1, autoP: 0, exp: 0, lvl: 1, mult: 1, eggs: 0, 
+        currentEmoji: "🐟", currentPet: null,
+        boxPrices: { common: 2000, epic: 25000, legendary: 150000 },
+        items: {
+            click: { n: "Сила плавника", cost: 10, p: 2, count: 0 },
+            auto: { n: "Авто-сачок", cost: 100, p: 10, count: 0 },
+            sonar: { n: "Эхолот", cost: 1500, p: 80, count: 0 },
+            farm: { n: "Рыбная ферма", cost: 12000, p: 450, count: 0 },
+            drill: { n: "Глубинный бур", cost: 85000, p: 2200, count: 0 },
+            portal: { n: "Морской портал", cost: 500000, p: 12000, count: 0 }
+        },
+        skins: {
+            def: { n: "Обычный", e: "🐟", r: "common", b: true },
+            gold: { n: "Золотой", e: "🐠", r: "common", b: false },
+            cat: { n: "Кот", e: "🐱", r: "rare", b: false },
+            robot: { n: "Робот", e: "🤖", r: "rare", b: false },
+            alien: { n: "Пришелец", e: "👽", r: "epic", b: false },
+            demon: { n: "Демон", e: "😈", r: "legendary", b: false },
+            king: { n: "Король", e: "👑", r: "legendary", b: false }
+        },
+        pets: {
+            shrimp: { n: "Креветка", e: "🦐", r: "common", bonus: 1.5, crit: 5, b: false },
+            crab: { n: "Крабик", e: "🦀", r: "rare", bonus: 3.0, crit: 10, b: false },
+            squid: { n: "Кальмар", e: "🦑", r: "epic", bonus: 8.0, crit: 20, b: false },
+            dragon: { n: "Дракон", e: "🐉", r: "legendary", bonus: 30.0, crit: 40, b: false }
+        }
+    };
+
+    let game = JSON.parse(JSON.stringify(DEFAULT_GAME));
+    let currentTab = 'u';
+    let isOpening = false;
+
+    function saveGame() { localStorage.setItem('karas_igroutka_v1', JSON.stringify(game)); }
+    function loadGame() {
+        const saved = localStorage.getItem('karas_igroutka_v1');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            game = {...DEFAULT_GAME, ...parsed};
+            document.getElementById('karas-node').innerText = game.currentEmoji;
+            updatePetVisual();
+        }
+    }
+
+    function showToast(txt) {
+        const t = document.getElementById('game-toast');
+        t.innerText = txt;
+        t.classList.add('active');
+        setTimeout(() => t.classList.remove('active'), 2500);
+    }
+
+    function format(n) {
+        if (n >= 1e9) return (n/1e9).toFixed(2) + "B";
+        if (n >= 1e6) return (n/1e6).toFixed(2) + "M";
+        if (n >= 1e3) return (n/1e3).toFixed(1) + "k";
+        return Math.floor(n);
+    }
+
+    function updateUI() {
+        document.getElementById('stats').innerText = format(game.coins);
+        document.getElementById('lvl-fill').style.width = (game.exp / (game.lvl * 500) * 100) + "%";
+        document.getElementById('lvl-txt').innerText = "УРОВЕНЬ: " + game.lvl;
+        document.getElementById('crit-val').innerText = game.currentPet ? game.pets[game.currentPet].crit : 0;
+        document.getElementById('egg-count').innerText = game.eggs;
+        document.getElementById('pending-eggs').innerText = Math.floor(Math.sqrt(game.coins / 10000));
+        saveGame();
+    }
+
+    document.getElementById('karas-node').onmousedown = (e) => {
+        const critChance = game.currentPet ? game.pets[game.currentPet].crit : 0;
+        const isCrit = Math.random() * 100 < critChance;
+        const gain = game.clickP * game.mult * (1 + game.eggs * 0.15) * (isCrit ? 5 : 1);
+        
+        game.coins += gain; game.exp += gain;
+        if(game.exp >= game.lvl * 500) { game.exp = 0; game.lvl++; showToast("НОВЫЙ УРОВЕНЬ!"); }
+        
+        spawnPop(e.clientX, e.clientY, "+" + format(gain), isCrit);
+        updateUI();
+    };
+
+    function spawnPop(x, y, txt, isCrit) {
+        const p = document.createElement('div');
+        p.className = 'pop';
+        if(isCrit) { p.style.color = 'var(--gold)'; p.style.fontSize = '2.5rem'; p.innerText = txt + "!"; }
+        else { p.innerText = txt; }
+        p.style.left = x + 'px'; p.style.top = y + 'px';
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 800);
+    }
+
+    function renderShop() {
+        const list = document.getElementById('shop-list'); list.innerHTML = '';
+        if(currentTab === 'u') {
+            for(let id in game.items) {
+                let it = game.items[id];
+                list.innerHTML += `<div class="item-card" onclick="buyItem('${id}')">
+                    <div><b>${it.n}</b><br><small>Ур. ${it.count}</small></div>
+                    <div class="price-text">${format(it.cost)}</div></div>`;
+            }
+        } else {
+            ['common','epic','legendary'].forEach(id => {
+                list.innerHTML += `<div class="box-card" style="border-color: var(--${id})" onclick="startBoxOpening('${id}')">
+                    <div style="font-size:50px">📦</div><b>ЯЩИК [${id.toUpperCase()}]</b><br>
+                    <div class="price-text">${format(game.boxPrices[id])}</div></div>`;
+            });
+        }
+    }
+
+    function buyItem(id) {
+        let it = game.items[id];
+        if(game.coins >= it.cost && it.cost < 1500001) {
+            game.coins -= it.cost; it.count++;
+            if(id === 'click') game.clickP += it.p; else game.autoP += it.p;
+            it.cost = Math.min(Math.round(it.cost * 1.6), 1500000);
+            updateUI(); renderShop();
+        } else if (it.cost >= 1500000) {
+            showToast("МАКС. УРОВЕНЬ ПРЕДМЕТА!");
+        }
+    }
+
+    function startBoxOpening(type) {
+        if(game.coins < game.boxPrices[type] || isOpening) return;
+        game.coins -= game.boxPrices[type];
+        game.boxPrices[type] = Math.round(game.boxPrices[type] * 1.3);
+        isOpening = true;
+        
+        const overlay = document.getElementById('crate-overlay');
+        const visual = document.getElementById('crate-visual');
+        const label = document.getElementById('crate-label');
+        
+        overlay.style.display = 'flex';
+        visual.className = 'crate-shake';
+        label.innerText = "ТРЯСЁМ...";
+
+        setTimeout(() => {
+            visual.className = 'crate-explode';
+            label.innerText = "БУМ!";
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                finishBoxOpening(type);
+                isOpening = false;
+            }, 600);
+        }, 1500);
+    }
+
+    function finishBoxOpening(type) {
+        const pool = type === 'common' ? ['common','rare'] : type === 'epic' ? ['rare','epic'] : ['epic','legendary'];
+        const rarity = Math.random() > 0.8 ? pool[1] : pool[0];
+        
+        // Рандом скина
+        const sKeys = Object.keys(game.skins).filter(k => game.skins[k].r === rarity);
+        const winSkin = sKeys[Math.floor(Math.random() * sKeys.length)];
+        game.skins[winSkin].b = true;
+        
+        // Рандом пета
+        const pKeys = Object.keys(game.pets).filter(k => game.pets[k].r === rarity);
+        const winPet = pKeys[Math.floor(Math.random() * pKeys.length)];
+        game.pets[winPet].b = true;
+        
+        showToast("ВЫПАЛО: " + game.skins[winSkin].n + " и " + game.pets[winPet].n);
+        updateUI();
+    }
+
+    function renderPets() {
+        const list = document.getElementById('pets-list-content'); list.innerHTML = '';
+        for(let id in game.pets) {
+            if(!game.pets[id].b) continue;
+            list.innerHTML += `<div class="item-card" onclick="applyPet('${id}')">
+                <div><b>${game.pets[id].e} ${game.pets[id].n}</b><br><small>Бонус: x${game.pets[id].bonus}</small></div>
+                <button class="nav-btn" style="padding:5px 10px">ВЫБРАТЬ</button></div>`;
+        }
+    }
+
+    function renderWardrobe() {
+        const list = document.getElementById('wardrobe-list'); list.innerHTML = '';
+        for(let id in game.skins) {
+            if(!game.skins[id].b) continue;
+            list.innerHTML += `<div class="item-card" onclick="applySkin('${id}')">
+                <div style="color:var(--${game.skins[id].r})"><b>${game.skins[id].e} ${game.skins[id].n}</b></div>
+                <button class="nav-btn" style="padding:5px 10px">НАДЕТЬ</button></div>`;
+        }
+    }
+
+    function applyPet(id) { game.currentPet = id; updatePetVisual(); closeModal('pets-menu'); updateUI(); showToast("ПЕТ ВЫБРАН!"); }
+    function updatePetVisual() { document.getElementById('pet-node').innerText = game.currentPet ? game.pets[game.currentPet].e : ""; }
+    
+    function applySkin(id) {
+        game.currentEmoji = game.skins[id].e;
+        game.mult = game.skins[id].r === 'legendary' ? 100 : game.skins[id].r === 'epic' ? 25 : 5;
+        document.getElementById('karas-node').innerText = game.currentEmoji;
+        closeModal('wardrobe');
+        showToast("ОБЛИК ИЗМЕНЁН!");
+    }
+
+    function doPrestige() {
+        let gain = Math.floor(Math.sqrt(game.coins / 10000));
+        if(gain < 1) { showToast("НУЖНО БОЛЬШЕ МОНЕТ!"); return; }
+        game.eggs += gain; game.coins = 0; game.clickP = 1; game.autoP = 0; game.lvl = 1; game.exp = 0;
+        for(let id in game.items) { game.items[id].count = 0; game.items[id].cost = DEFAULT_GAME.items[id].cost; }
+        closeModal('prestige'); updateUI(); showToast("МИР ПЕРЕРОЖДЁН!");
+    }
+
+    function setTab(t) { currentTab = t; document.getElementById('btn-u').classList.toggle('active', t==='u'); document.getElementById('btn-b').classList.toggle('active', t==='b'); renderShop(); }
+    function openModal(id) { document.getElementById(id + '-overlay').classList.add('active'); if(id==='shop') renderShop(); if(id==='wardrobe') renderWardrobe(); if(id==='pets-menu') renderPets(); }
+    function closeModal(id) { document.getElementById(id + '-overlay').classList.remove('active'); }
+
+    setInterval(() => { 
+        if(game.autoP > 0) { 
+            let pM = game.currentPet ? game.pets[game.currentPet].bonus : 1;
+            game.coins += (game.autoP * game.mult * (1 + game.eggs * 0.15) * pM) / 10; 
+            updateUI(); 
+        } 
+    }, 100);
+
+    loadGame();
+    updateUI();
+</script>
+</body>
+</html>
