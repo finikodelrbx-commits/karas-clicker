@@ -45,7 +45,7 @@
         .modal { background: #05101a; width: 95%; max-width: 450px; height: 75vh; border-radius: 30px; border: 2px solid var(--accent); display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
         .content { flex: 1; overflow-y: auto; padding: 15px; }
-        .item-card { background: rgba(255,255,255,0.03); margin-bottom: 10px; padding: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.1); }
+        .item-card { background: rgba(255,255,255,0.03); margin-bottom: 10px; padding: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
         
         #event-timer { color: var(--event); font-weight: bold; font-size: 0.9rem; text-align: center; margin-bottom: 10px; }
         
@@ -232,15 +232,12 @@
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                // Глубокое объединение объектов, чтобы не потерять новые поля
                 game = {...DEFAULT_GAME, ...parsed};
                 game.items = {...DEFAULT_GAME.items, ...parsed.items};
                 game.skins = {...DEFAULT_GAME.skins, ...parsed.skins};
                 game.pets = {...DEFAULT_GAME.pets, ...parsed.pets};
             } catch(e) { console.error("Ошибка загрузки!"); }
         }
-        
-        // Сразу применяем настройки из сохранения
         setLang(game.lang);
         document.getElementById('karas-node').innerText = game.currentEmoji || "🐟";
         updatePetVisual();
@@ -256,18 +253,20 @@
         document.getElementById('mult-val').innerText = game.mult;
         document.getElementById('crit-val').innerText = game.currentPet ? game.pets[game.currentPet].crit : 0;
         document.getElementById('egg-count').innerText = game.eggs;
-        
         let nextEggCost = Math.pow(game.eggs + 1, 3) * 100000;
         document.getElementById('next-egg-cost').innerText = format(nextEggCost);
     }
 
+    // Клик по рыбе
     document.getElementById('karas-node').onmousedown = (e) => {
         let critChance = game.currentPet ? game.pets[game.currentPet].crit : 0;
         let isCrit = Math.random() * 100 < critChance;
         let boost = 1 + (game.eggs * 0.5); 
         let gain = game.clickP * game.mult * boost * (isCrit ? 5 : 1);
         
-        game.coins += gain; game.exp += gain;
+        game.coins += gain; 
+        game.exp += gain;
+        
         if(game.exp >= game.lvl * 1000) { 
             game.exp = 0; game.lvl++; 
             showToast(game.lang==='ru'?"НОВЫЙ УРОВЕНЬ!":"LEVEL UP!"); 
@@ -285,42 +284,6 @@
         p.style.left = x + 'px'; p.style.top = y + 'px';
         document.body.appendChild(p);
         setTimeout(() => p.remove(), 800);
-    }
-
-    function renderDaily() {
-        const grid = document.getElementById('daily-grid');
-        grid.innerHTML = '';
-        const now = Date.now();
-        const canClaim = now - game.lastDaily > 86400000;
-        
-        for(let i=0; i<6; i++) {
-            const dayDiv = document.createElement('div');
-            dayDiv.className = `daily-day ${game.dailyStep === i ? 'active' : ''}`;
-            dayDiv.innerHTML = `${TRANSLATIONS[game.lang].day} ${i+1}<br>🎁`;
-            grid.appendChild(dayDiv);
-        }
-        document.getElementById('daily-claim-btn').disabled = !canClaim;
-    }
-
-    function claimDaily() {
-        game.coins += 1000 * (game.dailyStep + 1);
-        game.lastDaily = Date.now();
-        game.dailyStep = (game.dailyStep + 1) % 6;
-        showToast(game.lang==='ru'?"НАГРАДА ПОЛУЧЕНА!":"CLAIMED!");
-        renderDaily();
-        updateUI();
-        saveGame();
-    }
-
-    function updateEventTimer() {
-        const now = new Date();
-        const nextEvent = new Date();
-        nextEvent.setHours(now.getHours() + 1, 0, 0, 0);
-        const diff = nextEvent - now;
-        const mins = Math.floor(diff / 60000);
-        const secs = Math.floor((diff % 60000) / 1000);
-        const timerEl = document.getElementById('event-timer');
-        if(timerEl) timerEl.innerText = `${TRANSLATIONS[game.lang].next_event}: ${mins}:${secs < 10 ? '0'+secs : secs}`;
     }
 
     function renderShop() {
@@ -348,31 +311,81 @@
             game.coins -= it.cost; it.count++;
             if(id === 'click') game.clickP += it.p; else game.autoP += it.p;
             it.cost = Math.round(it.cost * 1.5);
-            updateUI(); renderShop();
+            updateUI(); renderShop(); saveGame();
+        }
+    }
+
+    // --- ОТКРЫТИЕ ЯЩИКОВ ---
+    function openBox(type) {
+        const price = game.boxPrices[type];
+        if (game.coins >= price) {
+            game.coins -= price;
+            const roll = Math.random() * 100;
+            let resultTxt = "";
+
+            if (roll < 60) { // Шанс 60% на скин
+                const keys = Object.keys(game.skins);
+                const randomSkin = keys[Math.floor(Math.random() * keys.length)];
+                game.skins[randomSkin].b = true;
+                resultTxt = (game.lang === 'ru' ? "Скин: " : "Skin: ") + game.skins[randomSkin][game.lang];
+            } else { // Шанс 40% на питомца
+                const keys = Object.keys(game.pets);
+                const randomPet = keys[Math.floor(Math.random() * keys.length)];
+                game.pets[randomPet].b = true;
+                resultTxt = (game.lang === 'ru' ? "Питомец: " : "Pet: ") + game.pets[randomPet][game.lang];
+            }
+            showToast(resultTxt);
+            updateUI();
             saveGame();
+        } else {
+            showToast(game.lang === 'ru' ? "Мало монет!" : "Need more coins!");
         }
     }
 
     function doPrestige() {
         let nextEggCost = Math.pow(game.eggs + 1, 3) * 100000;
         if (game.coins >= nextEggCost) {
-            if(confirm(game.lang==='ru'?"ПЕРЕРОДИТЬСЯ? Вы получите 1 икринку!":"ASCEND? You will get 1 egg!")) {
-                game.eggs++;
-                game.coins = 0;
-                game.clickP = 1;
-                game.autoP = 0;
-                game.lvl = 1;
-                game.exp = 0;
+            if(confirm(game.lang==='ru'?"ПЕРЕРОДИТЬСЯ?":"ASCEND?")) {
+                game.eggs++; game.coins = 0; game.clickP = 1; game.autoP = 0; game.lvl = 1; game.exp = 0;
                 for(let key in game.items) { 
                     game.items[key].count = 0; 
                     game.items[key].cost = (key === 'click' || key === 'auto') ? 15 : (key === 'sonar' ? 2000 : 25000); 
                 }
-                saveGame();
-                location.reload();
+                saveGame(); location.reload();
             }
-        } else {
-            showToast(game.lang==='ru'?"Недостаточно монет!":"Not enough coins!");
+        } else { showToast(game.lang==='ru'?"Мало монет!":"Need more coins!"); }
+    }
+
+    function renderDaily() {
+        const grid = document.getElementById('daily-grid'); grid.innerHTML = '';
+        const now = Date.now();
+        const canClaim = now - game.lastDaily > 86400000;
+        for(let i=0; i<6; i++) {
+            const dayDiv = document.createElement('div');
+            dayDiv.className = `daily-day ${game.dailyStep === i ? 'active' : ''}`;
+            dayDiv.innerHTML = `${TRANSLATIONS[game.lang].day} ${i+1}<br>🎁`;
+            grid.appendChild(dayDiv);
         }
+        document.getElementById('daily-claim-btn').disabled = !canClaim;
+    }
+
+    function claimDaily() {
+        game.coins += 1000 * (game.dailyStep + 1);
+        game.lastDaily = Date.now();
+        game.dailyStep = (game.dailyStep + 1) % 6;
+        showToast(game.lang==='ru'?"ЗАБРАНО!":"CLAIMED!");
+        renderDaily(); updateUI(); saveGame();
+    }
+
+    function updateEventTimer() {
+        const now = new Date();
+        const nextEvent = new Date();
+        nextEvent.setHours(now.getHours() + 1, 0, 0, 0);
+        const diff = nextEvent - now;
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        const timerEl = document.getElementById('event-timer');
+        if(timerEl) timerEl.innerText = `${TRANSLATIONS[game.lang].next_event}: ${mins}:${secs < 10 ? '0'+secs : secs}`;
     }
 
     function renderPets() {
@@ -391,15 +404,14 @@
             if(!game.skins[id].b) continue;
             list.innerHTML += `<div class="item-card" onclick="applySkin('${id}')">
                 <div><b>${game.skins[id].e} ${game.skins[id][game.lang]}</b></div>
-                <span>${TRANSLATIONS[game.lang].select}</span></div>`;
+                <span>${game.currentEmoji === game.skins[id].e ? '✅' : TRANSLATIONS[game.lang].select}</span></div>`;
         }
     }
 
     function applySkin(id) { 
         game.currentEmoji = game.skins[id].e; 
         document.getElementById('karas-node').innerText = game.currentEmoji;
-        closeModal('wardrobe'); 
-        saveGame();
+        closeModal('wardrobe'); saveGame();
     }
     
     function applyPet(id) { game.currentPet = id; updatePetVisual(); closeModal('pets-menu'); saveGame(); updateUI(); }
@@ -410,10 +422,10 @@
         if(id === 'shop') renderShop();
         if(id === 'pets-menu') renderPets();
         if(id === 'wardrobe') renderWardrobe();
+        if(id === 'daily') renderDaily();
     }
     function closeModal(id) { document.getElementById(id + '-overlay').classList.remove('active'); }
     function setTab(t) { currentTab = t; renderShop(); }
-    
     function showToast(txt) {
         const t = document.getElementById('game-toast');
         t.innerText = txt; t.classList.add('active');
@@ -421,27 +433,21 @@
     }
 
     function hardReset() { 
-        if(confirm(game.lang==='ru'?"СБРОСИТЬ ВСЁ?":"RESET EVERYTHING?")) { 
-            localStorage.clear(); 
-            location.reload(); 
-        } 
+        if(confirm(game.lang==='ru'?"СБРОСИТЬ ВСЁ?":"RESET?")) { localStorage.clear(); location.reload(); } 
     }
 
-    // Основной цикл
+    // --- ОСНОВНОЙ ЦИКЛ (Автокликер 1 раз в сек) ---
     setInterval(() => {
         if(game.autoP > 0) {
             let pM = game.currentPet ? game.pets[game.currentPet].bonus : 1;
             let boost = 1 + (game.eggs * 0.5);
-            game.coins += (game.autoP * game.mult * pM * boost) / 10;
+            game.coins += (game.autoP * game.mult * pM * boost);
             updateUI();
         }
         updateEventTimer();
-    }, 100);
+    }, 1000);
 
-    // Автосохранение каждые 5 секунд
     setInterval(saveGame, 5000);
-
-    // Запуск игры
     window.onload = loadGame;
 </script>
 </body>
