@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KarasClicker: Evolution ONLINE</title>
-    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
     <style>
         :root {
             --accent: #00f2ff; --gold: #ffcc00; --bg: #01080f; --glass: rgba(255, 255, 255, 0.1); 
@@ -31,6 +30,7 @@
         .lvl-bar { width: 280px; height: 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin: 8px auto; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); box-shadow: inset 0 0 5px #000; }
         #lvl-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00f2ff, #00ff88); transition: width 0.3s; }
 
+        /* Чат Кнопка */
         #chat-trigger { position: fixed; top: 20px; left: 20px; z-index: 100; background: var(--glass); border: 2px solid var(--accent); border-radius: 15px; padding: 10px; cursor: pointer; backdrop-filter: blur(10px); }
 
         #game-scene { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; }
@@ -58,9 +58,10 @@
         .content { flex: 1; overflow-y: auto; padding: 15px; }
         .item-card { background: rgba(255,255,255,0.03); margin-bottom: 12px; padding: 18px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.1); }
         
+        /* ЧАТ СТИЛИ */
         #chat-content { display: flex; flex-direction: column; height: 100%; }
         #chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .msg { background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; border-left: 3px solid var(--accent); }
+        .msg { background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; }
         .msg b { color: var(--accent); }
         #chat-input-area { display: flex; padding: 15px; gap: 10px; background: rgba(0,0,0,0.3); }
         #chat-input { flex: 1; background: var(--glass); border: 1px solid var(--accent); color: white; padding: 10px; border-radius: 10px; }
@@ -111,63 +112,72 @@
 
 <div class="overlay" id="chat-overlay" onclick="if(event.target == this) closeModal('chat')">
     <div class="modal">
-        <h3 style="text-align:center">ГЛОБАЛЬНЫЙ ЧАТ</h3>
+        <h3 style="text-align:center">ОБЩИЙ ЧАТ</h3>
         <div id="chat-content">
             <div id="chat-messages"></div>
             <div id="chat-input-area">
                 <input type="text" id="chat-input" placeholder="Введите сообщение...">
-                <button class="nav-btn" style="flex:none; width:60px" id="send-btn" onclick="sendChatMessage()">></button>
+                <button class="nav-btn" style="flex:none; width:60px" onclick="sendChatMessage()">></button>
             </div>
         </div>
     </div>
 </div>
 
-<div class="overlay" id="shop-overlay" onclick="if(event.target == this) closeModal('shop')"><div class="modal"><div style="display:flex; padding:15px; gap:10px"><button class="nav-btn" onclick="setTab('u')" data-t="upgrades">УЛУЧШЕНИЯ</button><button class="nav-btn" onclick="setTab('b')" data-t="cases">КЕЙСЫ</button></div><div id="shop-list" class="content"></div></div></div>
-<div class="overlay" id="daily-overlay" onclick="if(event.target == this) closeModal('daily')"><div class="modal" style="height: auto; padding: 25px;"><h3 data-t="daily_title" style="text-align:center">ЕЖЕДНЕВНЫЙ БОНУС</h3><div id="daily-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px"></div><button class="nav-btn" style="width:100%; margin-top:20px; background:var(--gold); color:black" onclick="claimDaily()" id="daily-claim-btn" data-t="claim">ЗАБРАТЬ</button></div></div>
+<div class="overlay" id="shop-overlay" onclick="if(event.target == this) closeModal('shop')">
+    <div class="modal">
+        <div style="display:flex; padding:15px; gap:10px">
+            <button class="nav-btn" onclick="setTab('u')" data-t="upgrades">УЛУЧШЕНИЯ</button>
+            <button class="nav-btn" onclick="setTab('b')" data-t="cases">КЕЙСЫ</button>
+        </div>
+        <div id="shop-list" class="content"></div>
+    </div>
+</div>
+
+<div class="overlay" id="daily-overlay" onclick="if(event.target == this) closeModal('daily')">
+    <div class="modal" style="height: auto; padding: 25px;">
+        <h3 data-t="daily_title" style="text-align:center">ЕЖЕДНЕВНЫЙ БОНУС</h3>
+        <div id="daily-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px"></div>
+        <button class="nav-btn" style="width:100%; margin-top:20px; background:var(--gold); color:black" onclick="claimDaily()" id="daily-claim-btn" data-t="claim">ЗАБРАТЬ</button>
+    </div>
+</div>
+
 <div class="overlay" id="events-overlay" onclick="if(event.target == this) closeModal('events')"><div class="modal"><h3 style="text-align:center" data-t="events_title">ИВЕНТЫ</h3><div id="event-timer">--:--</div><div id="events-list" class="content"></div></div></div>
-<div class="overlay" id="settings-overlay" onclick="if(event.target == this) closeModal('settings')"><div class="modal" style="height: auto; padding: 25px;"><h3 data-t="settings">НАСТРОЙКИ</h3><div style="background: rgba(0,242,255,0.1); padding: 10px; border-radius: 10px; margin-bottom: 15px; text-align: center; border: 1px solid var(--accent);">🌐 Игроков онлайн: <b id="online-count">1</b></div><div style="margin-bottom: 15px;"><label style="font-size: 0.8rem; opacity: 0.7;">ВАШ НИК:</label><input type="text" id="player-nick" style="width: 100%; background: var(--glass); border: 1px solid var(--accent); color: white; padding: 8px; border-radius: 8px;" onchange="updateNick(this.value)"></div><div style="display:flex; gap:10px; margin-bottom:15px"><button class="nav-btn" onclick="setLang('ru')">RU</button><button class="nav-btn" onclick="setLang('en')">EN</button></div><button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="saveGame(); showToast('OK!')" data-t="save">СОХРАНИТЬ</button><button class="nav-btn" style="width:100%; border-color: var(--danger)" onclick="hardReset()" data-t="reset">СБРОСИТЬ</button></div></div>
-<div class="overlay" id="prestige-overlay" onclick="if(event.target == this) closeModal('prestige')"><div class="modal" style="height: auto; padding: 25px; text-align: center;"><h2 style="color: var(--gold)" data-t="prestige">ПРЕСТИЖ</h2><p style="font-size: 0.9rem; opacity: 0.8;" data-t="prestige_desc"></p><div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; margin: 15px 0;"><div data-t="eggs">Икринки</div>: <b id="egg-count" style="color:var(--accent)">0</b><div style="font-size: 0.8rem; margin-top: 5px; color: var(--gold)"><span data-t="next_egg"></span>: <span id="next-egg-cost">0</span></div></div><button class="nav-btn" onclick="doPrestige()" data-t="ascend">ПЕРЕРОЖДЕНИЕ</button></div></div>
+
+<div class="overlay" id="settings-overlay" onclick="if(event.target == this) closeModal('settings')">
+    <div class="modal" style="height: auto; padding: 25px;">
+        <h3 data-t="settings">НАСТРОЙКИ</h3>
+        <div style="background: rgba(0,242,255,0.1); padding: 10px; border-radius: 10px; margin-bottom: 15px; text-align: center; border: 1px solid var(--accent);">
+            🌐 Игроков онлайн: <b id="online-count">1,245</b>
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label style="font-size: 0.8rem; opacity: 0.7;">ВАШ НИК:</label>
+            <input type="text" id="player-nick" style="width: 100%; background: var(--glass); border: 1px solid var(--accent); color: white; padding: 8px; border-radius: 8px;" onchange="updateNick(this.value)">
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:15px">
+            <button class="nav-btn" onclick="setLang('ru')">RU</button>
+            <button class="nav-btn" onclick="setLang('en')">EN</button>
+        </div>
+        <button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="saveGame(); showToast('OK!')" data-t="save">СОХРАНИТЬ</button>
+        <button class="nav-btn" style="width:100%; border-color: var(--danger)" onclick="hardReset()" data-t="reset">СБРОСИТЬ</button>
+    </div>
+</div>
+
+<div class="overlay" id="prestige-overlay" onclick="if(event.target == this) closeModal('prestige')">
+    <div class="modal" style="height: auto; padding: 25px; text-align: center;">
+        <h2 style="color: var(--gold)" data-t="prestige">ПРЕСТИЖ</h2>
+        <p style="font-size: 0.9rem; opacity: 0.8;" data-t="prestige_desc"></p>
+        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; margin: 15px 0;">
+            <div data-t="eggs">Икринки</div>: <b id="egg-count" style="color:var(--accent)">0</b>
+            <div style="font-size: 0.8rem; margin-top: 5px; color: var(--gold)"><span data-t="next_egg"></span>: <span id="next-egg-cost">0</span></div>
+        </div>
+        <button class="nav-btn" onclick="doPrestige()" data-t="ascend">ПЕРЕРОЖДЕНИЕ</button>
+    </div>
+</div>
+
 <div class="overlay" id="pets-menu-overlay" onclick="if(event.target == this) closeModal('pets-menu')"><div class="modal"><h3 style="text-align:center" data-t="pets">ПИТОМЦЫ</h3><div id="pets-list-content" class="content"></div></div></div>
 <div class="overlay" id="wardrobe-overlay" onclick="if(event.target == this) closeModal('wardrobe')"><div class="modal"><h3 style="text-align:center" data-t="wardrobe">ГАРДЕРОБ</h3><div id="wardrobe-list" class="content"></div></div></div>
 
 <script>
-    // --- ОНЛАЙН СИСТЕМА ---
-    const pubnub = new PubNub({
-        publishKey: 'pub-c-4638703e-8260-449e-953e-52f01f89389e', // Тестовые ключи
-        subscribeKey: 'sub-c-4638703e-8260-449e-953e-52f01f89389e',
-        uuid: "player_" + Math.random().toString(36).substring(7)
-    });
-
-    pubnub.subscribe({ channels: ['karas_chat_global'] });
-
-    pubnub.addListener({
-        message: function(m) {
-            addMsgToUI(m.message.user, m.message.text);
-        }
-    });
-
-    function sendChatMessage() {
-        const input = document.getElementById('chat-input');
-        const text = input.value.trim();
-        if(!text) return;
-        
-        pubnub.publish({
-            channel: 'karas_chat_global',
-            message: { user: game.nick, text: text }
-        });
-        input.value = '';
-    }
-
-    function addMsgToUI(user, text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'msg';
-        msgDiv.innerHTML = `<b>${user}:</b> ${text}`;
-        const box = document.getElementById('chat-messages');
-        box.appendChild(msgDiv);
-        box.scrollTop = box.scrollHeight;
-    }
-
-    // --- ЛОГИКА ИГРЫ (ОСТАЛЬНОЕ) ---
     const TRANSLATIONS = {
         ru: {
             crit: "КРИТ", mult: "МУЛЬТИ", shop: "МАГАЗИН", prestige: "ПРЕСТИЖ",
@@ -225,9 +235,39 @@
     let currentTab = 'u';
     let caseHealth = 0;
 
+    // ОНЛАЙН СИМУЛЯЦИЯ
+    function updateOnline() {
+        const count = 1200 + Math.floor(Math.random() * 150);
+        document.getElementById('online-count').innerText = count.toLocaleString();
+    }
+    setInterval(updateOnline, 3000);
+
     function updateNick(val) { if(val.trim()) game.nick = val; saveGame(); }
 
-    // Анимация пузырьков
+    function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        if(!input.value.trim()) return;
+        addMsg(game.nick, input.value);
+        input.value = '';
+    }
+
+    function addMsg(user, text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'msg';
+        msgDiv.innerHTML = `<b>${user}:</b> ${text}`;
+        const box = document.getElementById('chat-messages');
+        box.appendChild(msgDiv);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    const botMsgs = ["Я выбил легендарную акулу!", "Как накопить на престиж?", "Карась - топ!", "Кто в сети?", "У меня уже 10 уровень!"];
+    const botNames = ["Gamer_Pro", "FishLover", "Shadow", "Admin_X", "Karas_Master"];
+    
+    setInterval(() => {
+        if(Math.random() > 0.7) addMsg(botNames[Math.floor(Math.random()*botNames.length)], botMsgs[Math.floor(Math.random()*botMsgs.length)]);
+    }, 8000);
+
+    // ОСНОВНАЯ ЛОГИКА
     for(let i=0; i<15; i++) {
         let b = document.createElement('div');
         b.className = 'bubble';
@@ -258,8 +298,45 @@
         document.getElementById('player-nick').value = game.nick;
     }
 
-    // Обработка Enter в чате
-    document.getElementById('chat-input').onkeydown = (e) => { if(e.key === 'Enter') sendChatMessage(); };
+    // КЕЙСЫ
+    function openBox(type) {
+        if (game.coins >= game.boxPrices[type]) {
+            game.coins -= game.boxPrices[type];
+            closeModal('shop');
+            startCaseOpening(type);
+            updateUI();
+        } else { showToast(game.lang === 'ru' ? "Нужно больше золота!" : "Need more gold!"); }
+    }
+
+    function startCaseOpening(type) {
+        caseHealth = 3;
+        const box = document.getElementById('case-opening');
+        document.getElementById('karas-node').style.display = 'none';
+        box.style.display = 'flex';
+        const emojis = { common: '📦', epic: '🎁', legendary: '💎' };
+        document.getElementById('case-emoji').innerText = emojis[type];
+    }
+
+    function hitCase() {
+        caseHealth--;
+        const box = document.getElementById('case-opening');
+        box.classList.add('shake');
+        setTimeout(() => box.classList.remove('shake'), 200);
+        if (caseHealth <= 0) finishOpening();
+    }
+
+    function finishOpening() {
+        document.getElementById('case-opening').style.display = 'none';
+        document.getElementById('karas-node').style.display = 'block';
+        const skinKeys = Object.keys(game.skins).filter(k => k !== 'def');
+        const randomSkin = skinKeys[Math.floor(Math.random() * skinKeys.length)];
+        game.skins[randomSkin].b = true;
+        const petKeys = Object.keys(game.pets);
+        const randomPet = petKeys[Math.floor(Math.random() * petKeys.length)];
+        game.pets[randomPet].b = true;
+        showToast(game.lang === 'ru' ? `ВЫПАЛО: ${game.skins[randomSkin].e} и ${game.pets[randomPet].e}!` : `GOT: ${game.skins[randomSkin].e} & ${game.pets[randomPet].e}!`);
+        saveGame();
+    }
 
     // КЛИК
     document.getElementById('karas-node').onmousedown = (e) => {
@@ -282,7 +359,6 @@
         setTimeout(() => p.remove(), 800);
     }
 
-    // МАГАЗИН И МОДАЛКИ
     function renderShop() {
         const list = document.getElementById('shop-list'); list.innerHTML = '';
         if(currentTab === 'u') {
@@ -309,41 +385,6 @@
             it.cost = Math.round(it.cost * 1.7);
             updateUI(); renderShop(); saveGame();
         }
-    }
-
-    // Кейсы
-    function openBox(type) {
-        if (game.coins >= game.boxPrices[type]) {
-            game.coins -= game.boxPrices[type];
-            closeModal('shop');
-            startCaseOpening(type);
-            updateUI();
-        } else { showToast("Нужно больше золота!"); }
-    }
-
-    function startCaseOpening(type) {
-        caseHealth = 3;
-        document.getElementById('karas-node').style.display = 'none';
-        const box = document.getElementById('case-opening');
-        box.style.display = 'flex';
-    }
-
-    function hitCase() {
-        caseHealth--;
-        const box = document.getElementById('case-opening');
-        box.classList.add('shake');
-        setTimeout(() => box.classList.remove('shake'), 200);
-        if (caseHealth <= 0) finishOpening();
-    }
-
-    function finishOpening() {
-        document.getElementById('case-opening').style.display = 'none';
-        document.getElementById('karas-node').style.display = 'block';
-        const petKeys = Object.keys(game.pets);
-        const randomPet = petKeys[Math.floor(Math.random() * petKeys.length)];
-        game.pets[randomPet].b = true;
-        showToast("ПОЛУЧЕН ПИТОМЕЦ: " + game.pets[randomPet].e);
-        saveGame();
     }
 
     setInterval(() => {
