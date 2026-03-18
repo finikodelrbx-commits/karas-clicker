@@ -10,7 +10,7 @@
         :root {
             --accent: #00f2ff; --gold: #ffcc00; --bg: #01080f; --glass: rgba(255, 255, 255, 0.1); 
             --danger: #ff4d4d; --common: #ffffff; --rare: #0070dd; --epic: #a335ee; --legendary: #ff8000;
-            --event: #ff00ff;
+            --event: #ff00ff; --admin: #ff3e3e;
         }
         * { user-select: none; box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
         body {
@@ -22,7 +22,7 @@
         .bubble { position: absolute; background: rgba(255,255,255,0.1); border-radius: 50%; bottom: -50px; animation: rise 10s infinite linear; }
         @keyframes rise { 0% { transform: translateY(0) translateX(0); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: translateY(-110vh) translateX(50px); opacity: 0; } }
 
-        #game-toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--accent); color: black; padding: 12px 30px; border-radius: 50px; font-weight: 900; z-index: 2000; transition: 0.5s; box-shadow: 0 0 20px var(--accent); }
+        #game-toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--accent); color: black; padding: 12px 30px; border-radius: 50px; font-weight: 900; z-index: 4000; transition: 0.5s; box-shadow: 0 0 20px var(--accent); }
         #game-toast.active { top: 20px; }
 
         .ui-top { text-align: center; margin-top: 15px; z-index: 5; animation: slideDown 0.5s ease-out; }
@@ -33,6 +33,7 @@
         #lvl-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00f2ff, #00ff88); transition: width 0.3s; }
 
         #chat-trigger { position: fixed; top: 20px; left: 20px; z-index: 100; background: var(--glass); border: 2px solid var(--accent); border-radius: 15px; padding: 10px; cursor: pointer; backdrop-filter: blur(10px); }
+        #admin-trigger { position: fixed; top: 80px; left: 20px; z-index: 100; background: rgba(255,0,0,0.2); border: 2px solid var(--admin); border-radius: 15px; padding: 10px; cursor: pointer; display: none; color: var(--admin); font-weight: bold; }
 
         #game-scene { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; }
         #pet-node { font-size: 50px; position: absolute; left: 15%; filter: drop-shadow(0 0 20px var(--accent)); animation: float 3s infinite ease-in-out; }
@@ -70,6 +71,9 @@
         /* AUTH MODAL */
         #auth-overlay { display: flex; z-index: 3000; } 
         .auth-input { width: 100%; background: var(--glass); border: 1px solid var(--accent); color: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; text-align: center; }
+        .auth-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .auth-tab { flex: 1; padding: 10px; border-radius: 10px; background: var(--glass); cursor: pointer; font-size: 0.8rem; border: 1px solid transparent; }
+        .auth-tab.active { border-color: var(--accent); background: rgba(0,242,255,0.1); }
 
         .pop { position: absolute; pointer-events: none; animation: floatUp 0.8s forwards; font-weight: 900; z-index: 1000; font-size: 1.5rem; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
         @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-120px) scale(1.5); } }
@@ -83,15 +87,19 @@
 <div class="overlay active" id="auth-overlay">
     <div class="modal" style="height: auto; padding: 30px; text-align: center;">
         <h2 style="color: var(--accent)">KARAS ONLINE</h2>
-        <p style="opacity: 0.7; font-size: 0.9rem;">Вход в систему</p>
+        <div class="auth-tabs">
+            <div class="auth-tab active" id="tab-login" onclick="switchAuth('login')">ВХОД</div>
+            <div class="auth-tab" id="tab-reg" onclick="switchAuth('reg')">РЕГИСТРАЦИЯ</div>
+        </div>
         <input type="text" id="auth-nick" class="auth-input" placeholder="Ваш Никнейм">
         <input type="password" id="auth-pass" class="auth-input" placeholder="Пароль">
-        <button class="nav-btn" style="width: 100%; background: var(--accent); color: black;" onclick="login()">ВОЙТИ / СОЗДАТЬ АККАУНТ</button>
+        <button id="auth-btn" class="nav-btn" style="width: 100%; background: var(--accent); color: black;" onclick="processAuth()">ВОЙТИ</button>
         <p id="auth-status" style="font-size: 0.8rem; margin-top: 10px; color: var(--gold)"></p>
     </div>
 </div>
 
 <div id="chat-trigger" onclick="openModal('chat')">💬 ЧАТ</div>
+<div id="admin-trigger" onclick="openModal('admin')">⚡ ADMIN</div>
 
 <div class="ui-top">
     <div id="stats">0</div>
@@ -136,6 +144,15 @@
                 <button class="nav-btn" style="flex:none; width:60px" onclick="sendChatMessage()">></button>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="overlay" id="admin-overlay" onclick="if(event.target == this) closeModal('admin')">
+    <div class="modal" style="height: auto; padding: 20px;">
+        <h3 style="text-align:center; color: var(--admin)">ADMIN PANEL</h3>
+        <button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="game.coins += 1000000; updateUI();">ГИВ +1M COINS</button>
+        <button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="game.eggs += 10; updateUI();">ГИВ +10 EGGS</button>
+        <button class="nav-btn" style="width:100%; border-color: var(--danger)" onclick="hardReset()">ПОЛНЫЙ ВАЙП</button>
     </div>
 </div>
 
@@ -257,79 +274,84 @@
     let game = JSON.parse(JSON.stringify(DEFAULT_GAME));
     let currentTab = 'u';
     let caseHealth = 0;
+    let authMode = 'login';
 
-    // --- ЛОГИН И ОБНОВЛЕНИЕ ---
+    // --- АВТОРИЗАЦИЯ ---
 
-    async function login() {
+    function switchAuth(mode) {
+        authMode = mode;
+        document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+        document.getElementById('tab-reg').classList.toggle('active', mode === 'reg');
+        document.getElementById('auth-btn').innerText = mode === 'login' ? 'ВОЙТИ' : 'СОЗДАТЬ АККАУНТ';
+        document.getElementById('auth-status').innerText = "";
+    }
+
+    async function processAuth() {
         const nick = document.getElementById('auth-nick').value.trim();
         const pass = document.getElementById('auth-pass').value.trim();
         
         if(nick.length < 3 || pass.length < 3) {
-            document.getElementById('auth-status').innerText = "Ник и пароль от 3 символов!";
+            document.getElementById('auth-status').innerText = "Минимум 3 символа!";
             return;
         }
 
         document.getElementById('auth-status').innerText = "Загрузка...";
-        
         const userRef = db.ref('users/' + nick);
         const snapshot = await userRef.once('value');
         const userData = snapshot.val();
 
-        if (userData) {
-            if (userData.pass === pass) {
+        if (authMode === 'login') {
+            if (userData && userData.pass === pass) {
                 game = userData;
-                showToast("С возвращением, " + nick);
+                finishAuth();
             } else {
-                document.getElementById('auth-status').innerText = "Неверный пароль!";
-                return;
+                document.getElementById('auth-status').innerText = userData ? "Неверный пароль!" : "Аккаунт не найден!";
             }
         } else {
-            // Новый аккаунт (Сброс прогресса для новых)
-            game = JSON.parse(JSON.stringify(DEFAULT_GAME));
-            game.nick = nick;
-            game.pass = pass;
-            await userRef.set(game);
-            showToast("Аккаунт создан!");
+            if (userData) {
+                document.getElementById('auth-status').innerText = "Ник уже занят!";
+            } else {
+                game = JSON.parse(JSON.stringify(DEFAULT_GAME));
+                game.nick = nick; game.pass = pass;
+                await userRef.set(game);
+                finishAuth();
+            }
         }
+    }
 
+    function finishAuth() {
         document.getElementById('auth-overlay').classList.remove('active');
         document.getElementById('current-nick-display').innerText = game.nick;
+        if(game.nick === "Finikodel") document.getElementById('admin-trigger').style.display = 'block';
         loadGameData();
         initChat();
         updateOnlineCount();
+        showToast("Добро пожаловать, " + game.nick);
     }
+
+    // --- ОСТАЛЬНАЯ ЛОГИКА ---
 
     function updateOnlineCount() {
         const onlineRef = db.ref('online');
-        onlineRef.on('value', (snap) => {
-            // РЕАЛЬНЫЙ СЧЕТЧИК (без 1.3к)
-            document.getElementById('online-count').innerText = snap.numChildren();
-        });
         db.ref('online/' + game.nick).set(true);
         db.ref('online/' + game.nick).onDisconnect().remove();
+        onlineRef.on('value', (snap) => {
+            document.getElementById('online-count').innerText = snap.numChildren();
+        });
     }
 
     async function changeNickname() {
-        const pInput = prompt("Введите ваш ТЕКУЩИЙ ПАРОЛЬ для смены ника:");
-        if(pInput !== game.pass) {
-            alert("Неверный пароль!");
-            return;
-        }
-        
-        const newNick = prompt("Введите новый никнейм:").trim();
-        if(newNick.length < 3) return alert("Слишком короткий ник!");
-
+        const pInput = prompt("Введите пароль:");
+        if(pInput !== game.pass) return alert("Ошибка!");
+        const newNick = prompt("Новый ник:").trim();
+        if(newNick.length < 3) return;
         const check = await db.ref('users/' + newNick).once('value');
-        if(check.exists()) return alert("Этот ник уже занят!");
-
-        // Удаляем старый, создаем новый
+        if(check.exists()) return alert("Занято!");
         db.ref('users/' + game.nick).remove();
         game.nick = newNick;
         saveGame();
         location.reload();
     }
-
-    // --- ОСТАЛЬНАЯ ЛОГИКА ---
 
     function format(n) {
         if (n >= 1e12) return (n/1e12).toFixed(2) + "T";
@@ -386,7 +408,6 @@
 
     function initChat() {
         const chatRef = db.ref('chat').limitToLast(20);
-        chatRef.off(); 
         chatRef.on('child_added', (snapshot) => {
             const data = snapshot.val();
             addMsgUI(data.user, data.text);
@@ -500,11 +521,9 @@
     function finishOpening() {
         document.getElementById('case-opening').style.display = 'none';
         document.getElementById('karas-node').style.display = 'block';
-        
         const petKeys = Object.keys(game.pets);
         const randomPet = petKeys[Math.floor(Math.random() * petKeys.length)];
         game.pets[randomPet].b = true;
-        
         showToast("ПОЛУЧЕНО: " + game.pets[randomPet].e);
         saveGame();
     }
@@ -551,12 +570,11 @@
         }
     }
 
-    function hardReset() { if(confirm("ПОЛНЫЙ СБРОС АККАУНТА?")) { db.ref('users/' + game.nick).remove(); location.reload(); } }
+    function hardReset() { if(confirm("ПОЛНЫЙ СБРОС?")) { db.ref('users/' + game.nick).remove(); location.reload(); } }
 
     for(let i=0; i<15; i++) {
         let b = document.createElement('div');
-        b.className = 'bubble';
-        b.style.left = Math.random() * 100 + '%';
+        b.className = 'bubble'; b.style.left = Math.random() * 100 + '%';
         b.style.width = b.style.height = (Math.random() * 10 + 5) + 'px';
         b.style.animationDelay = Math.random() * 10 + 's';
         document.getElementById('ocean').appendChild(b);
