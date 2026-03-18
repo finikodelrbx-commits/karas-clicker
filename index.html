@@ -280,6 +280,7 @@
     let authMode = 'login';
 
     // --- АВТОРИЗАЦИЯ (ОПТИМИЗИРОВАНО) ---
+// --- ULTRA CRUCIAN ENGINE: AUTH, SAVE & LOGIC ---
 
     function switchAuth(mode) {
         authMode = mode;
@@ -290,18 +291,18 @@
     }
 
     async function processAuth() {
-        const nick = document.getElementById('auth-nick').value.trim();
+        const nick = document.getElementById('auth-nick').value.trim().toLowerCase();
         const pass = document.getElementById('auth-pass').value.trim();
         const btn = document.getElementById('auth-btn');
         const statusMsg = document.getElementById('auth-status');
         
-        if(nick.length < 3 || pass.length < 3) {
-            statusMsg.innerText = "Минимум 3 символа!";
+        if(nick.length < 3 || pass.length < 4) {
+            statusMsg.innerText = "Ник 3+ / Пароль 4+";
             return;
         }
 
-        btn.disabled = true; // Защита от спама кликами
-        statusMsg.innerText = "Связь с сервером...";
+        btn.disabled = true;
+        statusMsg.innerText = "Связь с базой...";
 
         try {
             const userRef = db.ref('users/' + nick);
@@ -310,7 +311,8 @@
 
             if (authMode === 'login') {
                 if (userData && userData.pass === pass) {
-                    game = userData;
+                    // Склеиваем старые данные с дефолтными (на случай обновлений)
+                    game = Object.assign(JSON.parse(JSON.stringify(DEFAULT_GAME)), userData);
                     finishAuth();
                 } else {
                     statusMsg.innerText = userData ? "Неверный пароль!" : "Аккаунт не найден!";
@@ -319,7 +321,6 @@
                 if (userData) {
                     statusMsg.innerText = "Ник уже занят!";
                 } else {
-                    statusMsg.innerText = "Создаем профиль...";
                     game = JSON.parse(JSON.stringify(DEFAULT_GAME));
                     game.nick = nick; game.pass = pass;
                     await userRef.set(game);
@@ -327,58 +328,39 @@
                 }
             }
         } catch (error) {
-            console.error("Firebase Auth Error:", error);
-            statusMsg.innerText = "Ошибка сети! Проверьте интернет.";
+            statusMsg.innerText = "Ошибка сети!";
         } finally {
             btn.disabled = false;
         }
     }
 
     function finishAuth() {
+        localStorage.setItem('karas_nick', game.nick);
+        localStorage.setItem('karas_pass', game.pass);
         document.getElementById('auth-overlay').classList.remove('active');
-        document.getElementById('current-nick-display').innerText = game.nick;
-        if(game.nick === "Finikodel") document.getElementById('admin-trigger').style.display = 'block';
+        document.getElementById('current-nick-display').innerText = game.nick.toUpperCase();
+        if(game.nick === "finikodel" || game.nick === "admin") {
+            document.getElementById('admin-trigger').style.display = 'block';
+        }
         loadGameData();
         initChat();
         updateOnlineCount();
-        showToast("Добро пожаловать, " + game.nick);
+        showToast("Карась в сети: " + game.nick);
     }
 
-    // --- АДМИН ПАНЕЛЬ ---
-
-    function wipeAllAccounts() {
-        if(confirm("ВЫ УВЕРЕНЫ? ЭТО УДАЛИТ ВСЕХ ИГРОКОВ В БАЗЕ FIREBASE!")) {
-            if(confirm("ТОЧНО УДАЛИТЬ ВСЕ?")) {
-                db.ref('users').remove().then(() => {
-                    alert("БАЗА АККАУНТОВ ОЧИЩЕНА!");
-                    location.reload();
-                }).catch(e => alert("Ошибка удаления: " + e));
-            }
+    // Тот самый быстрый сейв
+    function saveGame() { 
+        if(game.nick && game.nick !== "Guest") {
+            db.ref('users/' + game.nick).update(game);
         }
     }
 
-    // --- ОСТАЛЬНАЯ ЛОГИКА ---
-
     function updateOnlineCount() {
-        const onlineRef = db.ref('online');
         db.ref('online/' + game.nick).set(true);
         db.ref('online/' + game.nick).onDisconnect().remove();
-        onlineRef.on('value', (snap) => {
+        db.ref('online').on('value', (snap) => {
             document.getElementById('online-count').innerText = snap.numChildren();
         });
-    }
-
-    async function changeNickname() {
-        const pInput = prompt("Введите пароль:");
-        if(pInput !== game.pass) return alert("Ошибка!");
-        const newNick = prompt("Новый ник:").trim();
-        if(newNick.length < 3) return;
-        const check = await db.ref('users/' + newNick).once('value');
-        if(check.exists()) return alert("Занято!");
-        db.ref('users/' + game.nick).remove();
-        game.nick = newNick;
-        saveGame();
-        location.reload();
     }
 
     function format(n) {
@@ -402,7 +384,7 @@
     }
 
     function loadGameData() {
-        document.getElementById('karas-node').innerText = game.currentEmoji;
+        document.getElementById('karas-node').innerText = game.currentEmoji || "🐟";
         if(game.currentPet) document.getElementById('pet-node').innerText = game.pets[game.currentPet].e;
         setLang(game.lang);
         updateUI();
@@ -414,7 +396,11 @@
         let boost = 1 + (game.eggs * 0.7); 
         let gain = game.clickP * game.mult * boost * (isCrit ? 6 : 1);
         game.coins += gain; game.exp += gain;
-        if(game.exp >= game.lvl * 2000) { game.exp = 0; game.lvl++; showToast("LEVEL UP!"); }
+        if(game.exp >= game.lvl * 2000) { 
+            game.exp = 0; game.lvl++; 
+            showToast("LEVEL UP!"); 
+            saveGame(); // Сейв при уровне
+        }
         spawnPop(e.clientX, e.clientY, "+" + format(gain), isCrit);
         updateUI();
     };
@@ -428,17 +414,15 @@
         setTimeout(() => p.remove(), 800);
     }
 
-    function saveGame() { 
-        if(game.nick && game.nick !== "Guest") {
-            db.ref('users/' + game.nick).set(game);
-        }
-    }
-
     function initChat() {
-        const chatRef = db.ref('chat').limitToLast(20);
-        chatRef.on('child_added', (snapshot) => {
-            const data = snapshot.val();
-            addMsgUI(data.user, data.text);
+        db.ref('chat').limitToLast(20).on('child_added', (snap) => {
+            const d = snap.val();
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'msg';
+            msgDiv.innerHTML = `<b>${d.user}:</b> ${d.text}`;
+            const box = document.getElementById('chat-messages');
+            box.appendChild(msgDiv);
+            box.scrollTop = box.scrollHeight;
         });
     }
 
@@ -447,15 +431,6 @@
         if(!input.value.trim()) return;
         db.ref('chat').push({ user: game.nick, text: input.value.trim(), time: Date.now() });
         input.value = '';
-    }
-
-    function addMsgUI(user, text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'msg';
-        msgDiv.innerHTML = `<b>${user}:</b> ${text}`;
-        const box = document.getElementById('chat-messages');
-        box.appendChild(msgDiv);
-        box.scrollTop = box.scrollHeight;
     }
 
     function buyItem(id) {
@@ -472,10 +447,13 @@
         if(game.autoP > 0) {
             let pM = game.currentPet ? game.pets[game.currentPet].bonus : 1;
             let boost = 1 + (game.eggs * 0.7);
-            game.coins += (game.autoP * game.mult * pM * boost / 2);
+            game.coins += (game.autoP * game.mult * pM * boost / 10); // Раз в 100мс
             updateUI();
         }
-    }, 1000);
+    }, 100);
+
+    // Авто-сейв раз в минуту
+    setInterval(saveGame, 60000);
 
     function setLang(l) { 
         game.lang = l; 
@@ -526,23 +504,22 @@
             closeModal('shop');
             startCaseOpening(type);
             updateUI();
-        } else { showToast("Недостаточно монет!"); }
+        } else { showToast("Мало монет!"); }
     }
 
     function startCaseOpening(type) {
         caseHealth = 3;
-        const box = document.getElementById('case-opening');
         document.getElementById('karas-node').style.display = 'none';
+        const box = document.getElementById('case-opening');
         box.style.display = 'flex';
-        const emojis = { common: '📦', epic: '🎁', legendary: '💎' };
-        document.getElementById('case-emoji').innerText = emojis[type];
+        document.getElementById('case-emoji').innerText = {common:'📦', epic:'🎁', legendary:'💎'}[type];
     }
 
     function hitCase() {
         caseHealth--;
         const box = document.getElementById('case-opening');
         box.classList.add('shake');
-        setTimeout(() => box.classList.remove('shake'), 200);
+        setTimeout(() => box.classList.remove('shake'), 150);
         if (caseHealth <= 0) finishOpening();
     }
 
@@ -550,24 +527,27 @@
         document.getElementById('case-opening').style.display = 'none';
         document.getElementById('karas-node').style.display = 'block';
         const petKeys = Object.keys(game.pets);
-        const randomPet = petKeys[Math.floor(Math.random() * petKeys.length)];
-        game.pets[randomPet].b = true;
-        showToast("ПОЛУЧЕНО: " + game.pets[randomPet].e);
+        const res = petKeys[Math.floor(Math.random() * petKeys.length)];
+        game.pets[res].b = true;
+        showToast("ВЫПАЛО: " + game.pets[res].e);
         saveGame();
     }
 
     function renderDaily() {
         const grid = document.getElementById('daily-grid'); grid.innerHTML = '';
-        const canClaim = Date.now() - game.lastDaily > 86400000;
-        for(let i=0; i<6; i++) grid.innerHTML += `<div style="background:var(--glass); padding:10px; border-radius:10px; text-align:center; border: 1px solid ${game.dailyStep===i?'var(--gold)':'transparent'}">${TRANSLATIONS[game.lang].day} ${i+1}<br>🎁</div>`;
-        document.getElementById('daily-claim-btn').disabled = !canClaim;
+        const can = Date.now() - game.lastDaily > 86400000;
+        for(let i=0; i<6; i++) {
+            grid.innerHTML += `<div style="background:var(--glass); padding:10px; border-radius:10px; text-align:center; border: 1px solid ${game.dailyStep===i?'var(--gold)':'transparent'}">${TRANSLATIONS[game.lang].day} ${i+1}<br>🎁</div>`;
+        }
+        document.getElementById('daily-claim-btn').disabled = !can;
     }
 
     function claimDaily() {
-        game.coins += 5000 * (game.dailyStep + 1);
+        let reward = 5000 * (game.dailyStep + 1) * game.lvl;
+        game.coins += reward;
         game.lastDaily = Date.now();
         game.dailyStep = (game.dailyStep + 1) % 6;
-        showToast("Забрали!"); renderDaily(); updateUI(); saveGame();
+        showToast("+" + format(reward)); renderDaily(); updateUI(); saveGame();
     }
 
     function renderPets() {
@@ -588,27 +568,38 @@
 
     function applySkin(id) { game.currentEmoji = game.skins[id].e; document.getElementById('karas-node').innerText = game.currentEmoji; closeModal('wardrobe'); saveGame(); }
     function applyPet(id) { game.currentPet = id; if(id) document.getElementById('pet-node').innerText = game.pets[id].e; closeModal('pets-menu'); updateUI(); saveGame(); }
-    
+
     function doPrestige() {
-        let cost = Math.pow(game.eggs + 1, 4) * 200000;
-        if(game.coins >= cost && confirm("СДЕЛАТЬ ПЕРЕРОЖДЕНИЕ?")) {
-            game.eggs++; game.coins = 0; game.clickP = 1; game.autoP = 0; game.lvl = 1; game.exp = 0;
-            for(let k in game.items) { game.items[k].count = 0; game.items[k].cost = DEFAULT_GAME.items[k].cost; }
-            saveGame(); location.reload();
+        let nextEggCost = Math.pow(game.eggs + 1, 4) * 200000;
+        if(game.coins >= nextEggCost) {
+            game.coins = 0; game.clickP = 1; game.autoP = 0; game.exp = 0; game.lvl = 1; game.eggs++;
+            for(let id in game.items) { game.items[id].count = 0; game.items[id].cost = DEFAULT_GAME.items[id].cost; }
+            showToast("ВОЗНЕСЕНИЕ!"); closeModal('prestige'); updateUI(); saveGame();
+        } else { showToast("Мало монет!"); }
+    }
+
+    window.onload = () => {
+        const sn = localStorage.getItem('karas_nick');
+        const sp = localStorage.getItem('karas_pass');
+        if(sn && sp) {
+            document.getElementById('auth-nick').value = sn;
+            document.getElementById('auth-pass').value = sp;
+            processAuth();
         }
-    }
-
-    function hardReset() { if(confirm("ПОЛНЫЙ СБРОС СВОЕГО АККАУНТА?")) { db.ref('users/' + game.nick).remove(); location.reload(); } }
-
-    for(let i=0; i<15; i++) {
-        let b = document.createElement('div');
-        b.className = 'bubble'; b.style.left = Math.random() * 100 + '%';
-        b.style.width = b.style.height = (Math.random() * 10 + 5) + 'px';
-        b.style.animationDelay = Math.random() * 10 + 's';
-        document.getElementById('ocean').appendChild(b);
-    }
-
-    setInterval(saveGame, 15000);
+        
+        const ocean = document.getElementById('ocean');
+        for(let i=0; i<15; i++) {
+            let b = document.createElement('div');
+            b.className = 'bubble';
+            b.style.left = Math.random() * 100 + '%';
+            b.style.width = b.style.height = Math.random() * 20 + 5 + 'px';
+            b.style.animationDelay = Math.random() * 5 + 's';
+            ocean.appendChild(b);
+        }
+    };
+</script>
+</body>
+</html>
 </script>
 </body>
 </html>
