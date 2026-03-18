@@ -51,7 +51,8 @@
         .circle-btn { width: 55px; height: 55px; border-radius: 18px; font-size: 24px; background: var(--glass); border: 2px solid var(--accent); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px); }
         
         .btn-group { position: fixed; bottom: 20px; display: flex; gap: 10px; z-index: 10; width: 90%; max-width: 500px; }
-        .nav-btn { flex: 1; background: var(--glass); border: 2px solid var(--accent); color: white; padding: 14px; border-radius: 18px; cursor: pointer; font-weight: 800; font-size: 0.8rem; }
+        .nav-btn { flex: 1; background: var(--glass); border: 2px solid var(--accent); color: white; padding: 14px; border-radius: 18px; cursor: pointer; font-weight: 800; font-size: 0.8rem; transition: opacity 0.2s; }
+        .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 100; }
         .overlay.active { display: flex; }
@@ -152,7 +153,9 @@
         <h3 style="text-align:center; color: var(--admin)">ADMIN PANEL</h3>
         <button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="game.coins += 1000000; updateUI();">ГИВ +1M COINS</button>
         <button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="game.eggs += 10; updateUI();">ГИВ +10 EGGS</button>
-        <button class="nav-btn" style="width:100%; border-color: var(--danger)" onclick="hardReset()">ПОЛНЫЙ ВАЙП</button>
+        <button class="nav-btn" style="width:100%; border-color: var(--danger)" onclick="hardReset()">ПОЛНЫЙ ВАЙП (МОЙ АКК)</button>
+        <hr style="border-color: rgba(255,255,255,0.1); width: 100%; margin: 15px 0;">
+        <button class="nav-btn" style="width:100%; border-color: var(--danger); background: rgba(255,0,0,0.2);" onclick="wipeAllAccounts()">🧨 УДАЛИТЬ ВСЕ АККАУНТЫ</button>
     </div>
 </div>
 
@@ -276,7 +279,7 @@
     let caseHealth = 0;
     let authMode = 'login';
 
-    // --- АВТОРИЗАЦИЯ ---
+    // --- АВТОРИЗАЦИЯ (ОПТИМИЗИРОВАНО) ---
 
     function switchAuth(mode) {
         authMode = mode;
@@ -289,33 +292,45 @@
     async function processAuth() {
         const nick = document.getElementById('auth-nick').value.trim();
         const pass = document.getElementById('auth-pass').value.trim();
+        const btn = document.getElementById('auth-btn');
+        const statusMsg = document.getElementById('auth-status');
         
         if(nick.length < 3 || pass.length < 3) {
-            document.getElementById('auth-status').innerText = "Минимум 3 символа!";
+            statusMsg.innerText = "Минимум 3 символа!";
             return;
         }
 
-        document.getElementById('auth-status').innerText = "Загрузка...";
-        const userRef = db.ref('users/' + nick);
-        const snapshot = await userRef.once('value');
-        const userData = snapshot.val();
+        btn.disabled = true; // Защита от спама кликами
+        statusMsg.innerText = "Связь с сервером...";
 
-        if (authMode === 'login') {
-            if (userData && userData.pass === pass) {
-                game = userData;
-                finishAuth();
+        try {
+            const userRef = db.ref('users/' + nick);
+            const snapshot = await userRef.once('value');
+            const userData = snapshot.val();
+
+            if (authMode === 'login') {
+                if (userData && userData.pass === pass) {
+                    game = userData;
+                    finishAuth();
+                } else {
+                    statusMsg.innerText = userData ? "Неверный пароль!" : "Аккаунт не найден!";
+                }
             } else {
-                document.getElementById('auth-status').innerText = userData ? "Неверный пароль!" : "Аккаунт не найден!";
+                if (userData) {
+                    statusMsg.innerText = "Ник уже занят!";
+                } else {
+                    statusMsg.innerText = "Создаем профиль...";
+                    game = JSON.parse(JSON.stringify(DEFAULT_GAME));
+                    game.nick = nick; game.pass = pass;
+                    await userRef.set(game);
+                    finishAuth();
+                }
             }
-        } else {
-            if (userData) {
-                document.getElementById('auth-status').innerText = "Ник уже занят!";
-            } else {
-                game = JSON.parse(JSON.stringify(DEFAULT_GAME));
-                game.nick = nick; game.pass = pass;
-                await userRef.set(game);
-                finishAuth();
-            }
+        } catch (error) {
+            console.error("Firebase Auth Error:", error);
+            statusMsg.innerText = "Ошибка сети! Проверьте интернет.";
+        } finally {
+            btn.disabled = false;
         }
     }
 
@@ -327,6 +342,19 @@
         initChat();
         updateOnlineCount();
         showToast("Добро пожаловать, " + game.nick);
+    }
+
+    // --- АДМИН ПАНЕЛЬ ---
+
+    function wipeAllAccounts() {
+        if(confirm("ВЫ УВЕРЕНЫ? ЭТО УДАЛИТ ВСЕХ ИГРОКОВ В БАЗЕ FIREBASE!")) {
+            if(confirm("ТОЧНО УДАЛИТЬ ВСЕ?")) {
+                db.ref('users').remove().then(() => {
+                    alert("БАЗА АККАУНТОВ ОЧИЩЕНА!");
+                    location.reload();
+                }).catch(e => alert("Ошибка удаления: " + e));
+            }
+        }
     }
 
     // --- ОСТАЛЬНАЯ ЛОГИКА ---
@@ -570,7 +598,7 @@
         }
     }
 
-    function hardReset() { if(confirm("ПОЛНЫЙ СБРОС?")) { db.ref('users/' + game.nick).remove(); location.reload(); } }
+    function hardReset() { if(confirm("ПОЛНЫЙ СБРОС СВОЕГО АККАУНТА?")) { db.ref('users/' + game.nick).remove(); location.reload(); } }
 
     for(let i=0; i<15; i++) {
         let b = document.createElement('div');
