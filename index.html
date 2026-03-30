@@ -66,7 +66,6 @@
         #chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .msg { background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; border-left: 3px solid var(--accent); word-break: break-word; }
         .msg b { color: var(--accent); }
-        .msg.system { border-left-color: var(--gold); font-style: italic; opacity: 0.8; }
         #chat-input-area { display: flex; padding: 15px; gap: 10px; background: rgba(0,0,0,0.3); }
         #chat-input { flex: 1; background: var(--glass); border: 1px solid var(--accent); color: white; padding: 10px; border-radius: 10px; }
 
@@ -103,7 +102,7 @@
     </div>
     <div class="lvl-bar"><div id="lvl-fill"></div></div>
     <div id="lvl-txt">УРОВЕНЬ: 1</div>
-    <div style="font-size: 10px; opacity: 0.5; margin-top: 5px;">ИГРОК: <b id="display-nick">...</b></div>
+    <div style="font-size: 10px; opacity: 0.5; margin-top: 5px;">ИГРОК: <b id="display-nick">...</b> | ОНЛАЙН: <b id="online-count">1</b></div>
 </div>
 
 <div id="game-scene">
@@ -134,8 +133,8 @@
         <div id="chat-content">
             <div id="chat-messages"></div>
             <div id="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Введите сообщение...">
-                <button class="nav-btn" style="flex:none; width:60px" id="send-btn" onclick="sendChatMessage()">></button>
+                <input type="text" id="chat-input" placeholder="Сообщение всем...">
+                <button class="nav-btn" style="flex:none; width:60px" onclick="sendChatMessage()">></button>
             </div>
         </div>
     </div>
@@ -143,21 +142,13 @@
 
 <div class="overlay" id="shop-overlay" onclick="if(event.target == this) closeModal('shop')"><div class="modal"><div style="display:flex; padding:15px; gap:10px"><button class="nav-btn" onclick="setTab('u')" data-t="upgrades">УЛУЧШЕНИЯ</button><button class="nav-btn" onclick="setTab('b')" data-t="cases">КЕЙСЫ</button></div><div id="shop-list" class="content"></div></div></div>
 <div class="overlay" id="daily-overlay" onclick="if(event.target == this) closeModal('daily')"><div class="modal" style="height: auto; padding: 25px;"><h3 data-t="daily_title" style="text-align:center">ЕЖЕДНЕВНЫЙ БОНУС</h3><div id="daily-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px"></div><button class="nav-btn" style="width:100%; margin-top:20px; background:var(--gold); color:black" onclick="claimDaily()" id="daily-claim-btn" data-t="claim">ЗАБРАТЬ</button></div></div>
-<div class="overlay" id="events-overlay" onclick="if(event.target == this) closeModal('events')"><div class="modal"><h3 style="text-align:center" data-t="events_title">ИВЕНТЫ</h3><div id="event-timer" style="text-align:center; font-weight:bold; color:var(--event); margin-bottom:10px">00:00</div><div id="events-list" class="content"></div></div></div>
-<div class="overlay" id="settings-overlay" onclick="if(event.target == this) closeModal('settings')"><div class="modal" style="height: auto; padding: 25px;"><h3 data-t="settings">НАСТРОЙКИ</h3><div style="background: rgba(0,242,255,0.1); padding: 10px; border-radius: 10px; margin-bottom: 15px; text-align: center; border: 1px solid var(--accent);">🌐 Игроков онлайн: <b id="online-count">1</b></div><button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="saveGame(); showToast('OK!')" data-t="save">СОХРАНИТЬ</button><button class="nav-btn" style="width:100%; border-color: var(--danger)" onclick="hardReset()" data-t="reset">СБРОСИТЬ</button><button class="nav-btn" style="width:100%; margin-top: 15px; border-color: white" onclick="logout()">ВЫЙТИ ИЗ АККАУНТА</button></div></div>
+<div class="overlay" id="events-overlay" onclick="if(event.target == this) closeModal('events')"><div class="modal"><h3 style="text-align:center" data-t="events_title">ИВЕНТЫ</h3><div id="event-timer" style="text-align:center; color:var(--accent); font-weight:bold; margin-bottom:10px">--:--</div><div id="events-list" class="content"></div></div></div>
+<div class="overlay" id="settings-overlay" onclick="if(event.target == this) closeModal('settings')"><div class="modal" style="height: auto; padding: 25px;"><h3 data-t="settings">НАСТРОЙКИ</h3><button class="nav-btn" style="width:100%; margin-bottom:10px" onclick="saveGame(); showToast('OK!')" data-t="save">СОХРАНИТЬ</button><button class="nav-btn" style="width:100%; border-color: var(--danger)" onclick="hardReset()" data-t="reset">СБРОСИТЬ</button><button class="nav-btn" style="width:100%; margin-top: 10px; border-color: white" onclick="logout()">ВЫЙТИ ИЗ АККАУНТА</button></div></div>
 <div class="overlay" id="prestige-overlay" onclick="if(event.target == this) closeModal('prestige')"><div class="modal" style="height: auto; padding: 25px; text-align: center;"><h2 style="color: var(--gold)" data-t="prestige">ПРЕСТИЖ</h2><p style="font-size: 0.9rem; opacity: 0.8;" data-t="prestige_desc"></p><div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; margin: 15px 0;"><div data-t="eggs">Икринки</div>: <b id="egg-count" style="color:var(--accent)">0</b><div style="font-size: 0.8rem; margin-top: 5px; color: var(--gold)"><span data-t="next_egg"></span>: <span id="next-egg-cost">0</span></div></div><button class="nav-btn" onclick="doPrestige()" data-t="ascend">ПЕРЕРОЖДЕНИЕ</button></div></div>
 <div class="overlay" id="pets-menu-overlay" onclick="if(event.target == this) closeModal('pets-menu')"><div class="modal"><h3 style="text-align:center" data-t="pets">ПИТОМЦЫ</h3><div id="pets-list-content" class="content"></div></div></div>
 <div class="overlay" id="wardrobe-overlay" onclick="if(event.target == this) closeModal('wardrobe')"><div class="modal"><h3 style="text-align:center" data-t="wardrobe">ГАРДЕРОБ</h3><div id="wardrobe-list" class="content"></div></div></div>
 
 <script>
-    // --- ДАННЫЕ И ОНЛАЙН ---
-    const pubnub = new PubNub({
-        publishKey: 'pub-c-4638703e-8260-449e-953e-52f01f89389e',
-        subscribeKey: 'sub-c-4638703e-8260-449e-953e-52f01f89389e',
-        uuid: localStorage.getItem('karas_uuid') || "p_" + Math.random().toString(36).substring(7)
-    });
-    localStorage.setItem('karas_uuid', pubnub.getUUID());
-
     const DEFAULT_GAME = {
         coins: 0, clickP: 1, autoP: 0, exp: 0, lvl: 1, mult: 1, eggs: 0, 
         lang: 'ru', lastDaily: 0, dailyStep: 0, nick: "Player",
@@ -188,85 +179,136 @@
 
     let game = JSON.parse(JSON.stringify(DEFAULT_GAME));
     let currentUser = null;
-    let eventMult = 1;
+    let pubnub = null;
+    let currentTab = 'u';
+    let caseHealth = 0;
+    let openedBoxType = '';
+    let eventTimer = 0;
 
-    // --- АВТОРИЗАЦИЯ ---
+    // --- ОНЛАЙН И АККАУНТЫ ---
+    function initPubNub() {
+        pubnub = new PubNub({
+            publishKey: 'pub-c-4638703e-8260-449e-953e-52f01f89389e',
+            subscribeKey: 'sub-c-4638703e-8260-449e-953e-52f01f89389e',
+            uuid: currentUser
+        });
+        pubnub.subscribe({ channels: ['karas_global'], withPresence: true });
+        pubnub.addListener({
+            message: (m) => {
+                const box = document.getElementById('chat-messages');
+                box.innerHTML += `<div class="msg"><b>${m.message.u}:</b> ${m.message.t}</div>`;
+                box.scrollTop = box.scrollHeight;
+            },
+            presence: (p) => {
+                document.getElementById('online-count').innerText = p.occupancy;
+            }
+        });
+    }
+
     function handleAuth(type) {
         const user = document.getElementById('auth-user').value.trim();
         const pass = document.getElementById('auth-pass').value.trim();
-        if(!user || !pass) return alert("Введите данные!");
+        if(!user || !pass) return alert("Заполни поля!");
         let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
         if(type === 'reg') {
-            if(accounts[user]) return alert("Ник уже занят!");
+            if(accounts[user]) return alert("Ник занят!");
             accounts[user] = { pass: pass, data: JSON.parse(JSON.stringify(DEFAULT_GAME)) };
             accounts[user].data.nick = user;
             localStorage.setItem('karas_accounts', JSON.stringify(accounts));
-            alert("Успех! Теперь войдите.");
+            alert("Готово! Входи.");
         } else {
-            if(!accounts[user] || accounts[user].pass !== pass) return alert("Ошибка входа!");
-            loginAs(user);
+            if(!accounts[user] || accounts[user].pass !== pass) return alert("Ошибка!");
+            currentUser = user;
+            game = accounts[user].data;
+            localStorage.setItem('karas_last_user', user);
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('display-nick').innerText = user;
+            initPubNub();
+            initGame();
         }
     }
 
-    function loginAs(user) {
-        let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
-        currentUser = user;
-        game = accounts[user].data;
-        sessionStorage.setItem('karas_logged_in', user); // Сессия не сбрасывается при обновлении
-        document.getElementById('auth-overlay').style.display = 'none';
-        document.getElementById('display-nick').innerText = user;
-        initGame();
+    function logout() {
+        localStorage.removeItem('karas_last_user');
+        location.reload();
     }
-
-    function logout() { sessionStorage.removeItem('karas_logged_in'); location.reload(); }
-
-    // --- ЧАТ ---
-    pubnub.subscribe({ channels: ['karas_chat_global'], withPresence: true });
-    pubnub.addListener({
-        message: (m) => addMsgToUI(m.message.user, m.message.text, m.message.type === 'system'),
-        presence: (p) => document.getElementById('online-count').innerText = p.occupancy || 1
-    });
 
     function sendChatMessage() {
         const input = document.getElementById('chat-input');
-        if(!input.value.trim()) return;
-        pubnub.publish({
-            channel: 'karas_chat_global',
-            message: { user: currentUser, text: input.value.trim(), type: 'chat' }
-        });
+        if(!input.value.trim() || !pubnub) return;
+        pubnub.publish({ channel: 'karas_global', message: { u: currentUser, t: input.value.trim() } });
         input.value = '';
     }
 
-    function addMsgToUI(user, text, isSystem) {
-        const box = document.getElementById('chat-messages');
-        const m = document.createElement('div');
-        m.className = isSystem ? 'msg system' : 'msg';
-        m.innerHTML = isSystem ? text : `<b>${user}:</b> ${text}`;
-        box.appendChild(m);
-        box.scrollTop = box.scrollHeight;
+    // --- ЛОГИКА КЕЙСОВ (ИСПРАВЛЕНО) ---
+    function openBox(type) {
+        if (game.coins >= game.boxPrices[type]) {
+            game.coins -= game.boxPrices[type];
+            openedBoxType = type;
+            closeModal('shop');
+            startCaseOpening();
+            updateUI();
+        } else { showToast("Мало монет!"); }
     }
 
-    // --- ЛОГИКА ИГРЫ ---
-    const TRANSLATIONS = {
-        ru: {
-            crit: "КРИТ", mult: "МУЛЬТИ", shop: "МАГАЗИН", prestige: "ПРЕСТИЖ", upgrades: "УЛУЧШЕНИЯ", cases: "КЕЙСЫ", 
-            daily_title: "ЕЖЕДНЕВНЫЕ НАГРАДЫ", events_title: "ИВЕНТЫ", settings: "НАСТРОЙКИ", save: "СОХРАНИТЬ", 
-            reset: "СБРОСИТЬ", pets: "ПИТОМЦЫ", wardrobe: "ГАРДЕРОБ", claim: "ЗАБРАТЬ", ascend: "ПЕРЕРОЖДЕНИЕ", 
-            eggs: "Икринки", lvl: "УРОВЕНЬ", day: "День", select: "ВЫБРАТЬ", prestige_desc: "Сброс ради бонуса.",
-            next_egg: "Цена икринки", case_common: "ОБЫЧНЫЙ КЕЙС", case_epic: "ЭПИЧЕСКИЙ КЕЙС", case_legendary: "ЛЕГЕНДАРНЫЙ КЕЙС"
-        }
-    };
+    function startCaseOpening() {
+        caseHealth = 5;
+        document.getElementById('karas-node').style.display = 'none';
+        document.getElementById('case-opening').style.display = 'flex';
+    }
 
-    let currentTab = 'u';
-    let caseHealth = 0;
-    let openingType = 'common';
+    function hitCase() {
+        caseHealth--;
+        const box = document.getElementById('case-opening');
+        box.classList.add('shake');
+        setTimeout(() => box.classList.remove('shake'), 100);
+        if (caseHealth <= 0) finishOpening();
+    }
 
+    function finishOpening() {
+        document.getElementById('case-opening').style.display = 'none';
+        document.getElementById('karas-node').style.display = 'block';
+        
+        let pool = [];
+        // Шансы для питомцев
+        if(openedBoxType === 'common') pool = ['shrimp', 'shrimp', 'crab'];
+        if(openedBoxType === 'epic') pool = ['crab', 'penguin', 'axolotl'];
+        if(openedBoxType === 'legendary') pool = ['axolotl', 'whale', 'whale'];
+        
+        let pId = pool[Math.floor(Math.random()*pool.length)];
+        game.pets[pId].b = true;
+
+        // Шансы для скинов
+        let skinKeys = Object.keys(game.skins);
+        let sId = skinKeys[Math.floor(Math.random()*skinKeys.length)];
+        game.skins[sId].b = true;
+
+        showToast(`ВЫПАЛО: ${game.pets[pId].e} и ${game.skins[sId].e}`);
+        saveGame();
+    }
+
+    // --- ИВЕНТЫ (ИСПРАВЛЕНО) ---
+    function updateEvents() {
+        const list = document.getElementById('events-list');
+        list.innerHTML = `
+            <div class="item-card">
+                <div><b>ЗОЛОТОЙ ЧАС</b><br><small>Доход x3</small></div>
+                <div style="color:var(--gold)">АКТИВНО</div>
+            </div>
+            <div class="item-card" style="opacity:0.5">
+                <div><b>НОЧНОЙ УЛОВ</b><br><small>Шанс крита +20%</small></div>
+                <div>СКОРО</div>
+            </div>
+        `;
+    }
+
+    // --- БАЗОВЫЕ ФУНКЦИИ ---
     function initGame() {
         document.getElementById('karas-node').innerText = game.currentEmoji;
         if(game.currentPet) document.getElementById('pet-node').innerText = game.pets[game.currentPet].e;
         setLang(game.lang);
         updateUI();
-        startEventSystem();
+        updateEvents();
     }
 
     function format(n) {
@@ -281,8 +323,8 @@
         document.getElementById('stats').innerText = format(game.coins);
         let nextLvlExp = game.lvl * 2000;
         document.getElementById('lvl-fill').style.width = Math.min(100, (game.exp / nextLvlExp * 100)) + "%";
-        document.getElementById('lvl-txt').innerText = (TRANSLATIONS[game.lang].lvl || "LEVEL") + ": " + game.lvl;
-        document.getElementById('mult-val').innerText = (game.mult * eventMult).toFixed(1);
+        document.getElementById('lvl-txt').innerText = (TRANSLATIONS[game.lang].lvl || "УРОВЕНЬ") + ": " + game.lvl;
+        document.getElementById('mult-val').innerText = game.mult;
         document.getElementById('crit-val').innerText = game.currentPet ? game.pets[game.currentPet].crit : 0;
         document.getElementById('egg-count').innerText = document.getElementById('egg-count-top').innerText = game.eggs;
         let nextEggCost = Math.pow(game.eggs + 1, 4) * 200000;
@@ -292,7 +334,7 @@
     document.getElementById('karas-node').onmousedown = (e) => {
         let critChance = game.currentPet ? game.pets[game.currentPet].crit : 0;
         let isCrit = Math.random() * 100 < critChance;
-        let boost = (1 + (game.eggs * 0.7)) * eventMult; 
+        let boost = (1 + (game.eggs * 0.7)) * 3; // Включен ивент x3
         let gain = game.clickP * game.mult * boost * (isCrit ? 6 : 1);
         game.coins += gain; game.exp += gain;
         if(game.exp >= game.lvl * 2000) { game.exp = 0; game.lvl++; showToast("LEVEL UP!"); }
@@ -307,83 +349,6 @@
         p.innerText = txt; p.style.left = x + 'px'; p.style.top = y + 'px';
         document.body.appendChild(p);
         setTimeout(() => p.remove(), 800);
-    }
-
-    // --- КЕЙСЫ (ИСПРАВЛЕНО) ---
-    function openBox(type) {
-        if (game.coins >= game.boxPrices[type]) {
-            game.coins -= game.boxPrices[type];
-            openingType = type;
-            closeModal('shop');
-            caseHealth = 3;
-            document.getElementById('karas-node').style.display = 'none';
-            document.getElementById('case-opening').style.display = 'flex';
-            updateUI();
-        } else { showToast("Мало монет!"); }
-    }
-
-    function hitCase() {
-        caseHealth--;
-        const box = document.getElementById('case-opening');
-        box.classList.add('shake');
-        setTimeout(() => box.classList.remove('shake'), 200);
-        if (caseHealth <= 0) finishOpening();
-    }
-
-    function finishOpening() {
-        document.getElementById('case-opening').style.display = 'none';
-        document.getElementById('karas-node').style.display = 'block';
-        
-        let poolPets = [];
-        let poolSkins = [];
-        
-        // Фильтруем пулы по редкости кейса
-        for(let id in game.pets) {
-            if(openingType === 'common' && game.pets[id].r === 'common') poolPets.push({id, type:'pet'});
-            if(openingType === 'epic' && (game.pets[id].r === 'rare' || game.pets[id].r === 'epic')) poolPets.push({id, type:'pet'});
-            if(openingType === 'legendary' && (game.pets[id].r === 'epic' || game.pets[id].r === 'legendary')) poolPets.push({id, type:'pet'});
-        }
-        for(let id in game.skins) {
-            if(openingType === 'common' && game.skins[id].r === 'common') poolSkins.push({id, type:'skin'});
-            if(openingType === 'epic' && (game.skins[id].r === 'rare' || game.skins[id].r === 'epic')) poolSkins.push({id, type:'skin'});
-            if(openingType === 'legendary' && (game.skins[id].r === 'epic' || game.skins[id].r === 'legendary')) poolSkins.push({id, type:'skin'});
-        }
-
-        let fullPool = [...poolPets, ...poolSkins];
-        let win = fullPool[Math.floor(Math.random() * fullPool.length)];
-
-        if(win.type === 'pet') {
-            game.pets[win.id].b = true;
-            showToast("ВЫПАЛ ПИТОМЕЦ: " + game.pets[win.id].e);
-        } else {
-            game.skins[win.id].b = true;
-            showToast("ВЫПАЛ СКИН: " + game.skins[win.id].e);
-        }
-        saveGame();
-    }
-
-    // --- ИВЕНТЫ ---
-    function startEventSystem() {
-        setInterval(() => {
-            let now = new Date();
-            let sec = 60 - now.getSeconds();
-            document.getElementById('event-timer').innerText = "ОБНОВЛЕНИЕ: 00:" + (sec < 10 ? "0"+sec : sec);
-            if(sec === 1) {
-                eventMult = Math.random() > 0.7 ? 2 : 1;
-                if(eventMult > 1) showToast("🚀 БУСТ x2 ВКЛЮЧЕН!");
-                updateUI();
-            }
-        }, 1000);
-    }
-
-    function buyItem(id) {
-        let it = game.items[id];
-        if(game.coins >= it.cost) {
-            game.coins -= it.cost; it.count++;
-            if(id === 'click') game.clickP += it.p; else game.autoP += it.p;
-            it.cost = Math.round(it.cost * 1.7);
-            updateUI(); renderShop(); saveGame();
-        }
     }
 
     function renderShop() {
@@ -404,19 +369,30 @@
         }
     }
 
-    function saveGame() { 
-        if(!currentUser) return;
-        let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
-        accounts[currentUser].data = game;
-        localStorage.setItem('karas_accounts', JSON.stringify(accounts));
+    function buyItem(id) {
+        let it = game.items[id];
+        if(game.coins >= it.cost) {
+            game.coins -= it.cost; it.count++;
+            if(id === 'click') game.clickP += it.p; else game.autoP += it.p;
+            it.cost = Math.round(it.cost * 1.7);
+            updateUI(); renderShop(); saveGame();
+        }
     }
 
-    function loadSession() {
-        let sessionUser = sessionStorage.getItem('karas_logged_in');
-        if(sessionUser) loginAs(sessionUser);
-    }
+    const TRANSLATIONS = {
+        ru: {
+            crit: "КРИТ", mult: "МУЛЬТИ", shop: "МАГАЗИН", prestige: "ПРЕСТИЖ",
+            upgrades: "УЛУЧШЕНИЯ", cases: "КЕЙСЫ", daily_title: "ЕЖЕДНЕВНЫЕ НАГРАДЫ",
+            events_title: "ГЛОБАЛЬНЫЕ ИВЕНТЫ", settings: "НАСТРОЙКИ", save: "СОХРАНИТЬ",
+            reset: "СБРОСИТЬ", pets: "ПИТОМЦЫ", wardrobe: "ГАРДЕРОБ",
+            claim: "ЗАБРАТЬ", ascend: "ПЕРЕРОЖДЕНИЕ", eggs: "Икринки",
+            lvl: "УРОВЕНЬ", next_event: "СЛЕДУЮЩИЙ ЧЕРЕЗ", day: "День", select: "ВЫБРАТЬ",
+            prestige_desc: "Обнуляет прогресс ради мощного бонуса к доходу.",
+            next_egg: "Цена след. икринки", case_common: "ОБЫЧНЫЙ КЕЙС",
+            case_epic: "ЭПИЧЕСКИЙ КЕЙС", case_legendary: "ЛЕГЕНДАРНЫЙ КЕЙС"
+        }
+    };
 
-    // Вспомогательные функции
     function setLang(l) { game.lang = l; updateUI(); }
     function openModal(id) { 
         document.getElementById(id + '-overlay').classList.add('active'); 
@@ -432,10 +408,21 @@
         t.innerText = txt; t.classList.add('active');
         setTimeout(() => t.classList.remove('active'), 2500);
     }
-    function applySkin(id) { game.currentEmoji = game.skins[id].e; document.getElementById('karas-node').innerText = game.currentEmoji; closeModal('wardrobe'); saveGame(); }
-    function applyPet(id) { game.currentPet = id; if(id) document.getElementById('pet-node').innerText = game.pets[id].e; closeModal('pets-menu'); updateUI(); saveGame(); }
-    function hardReset() { if(confirm("СБРОСИТЬ ВСЁ?")) { localStorage.clear(); location.reload(); } }
-    
+
+    function renderDaily() {
+        const grid = document.getElementById('daily-grid'); grid.innerHTML = '';
+        const canClaim = Date.now() - game.lastDaily > 86400000;
+        for(let i=0; i<6; i++) grid.innerHTML += `<div style="background:var(--glass); padding:10px; border-radius:10px; text-align:center; border: 1px solid ${game.dailyStep===i?'var(--gold)':'transparent'}">День ${i+1}<br>🎁</div>`;
+        document.getElementById('daily-claim-btn').disabled = !canClaim;
+    }
+
+    function claimDaily() {
+        game.coins += 5000 * (game.dailyStep + 1);
+        game.lastDaily = Date.now();
+        game.dailyStep = (game.dailyStep + 1) % 6;
+        showToast("ЗАБРАНО!"); renderDaily(); updateUI(); saveGame();
+    }
+
     function renderPets() {
         const list = document.getElementById('pets-list-content'); list.innerHTML = '';
         for(let id in game.pets) {
@@ -443,6 +430,7 @@
             list.innerHTML += `<div class="item-card" onclick="applyPet('${id}')"><div><b>${game.pets[id].e} ${game.pets[id][game.lang]}</b><br><small>x${game.pets[id].bonus}</small></div><span>${game.currentPet === id ? '✅' : '🔘'}</span></div>`;
         }
     }
+
     function renderWardrobe() {
         const list = document.getElementById('wardrobe-list'); list.innerHTML = '';
         for(let id in game.skins) {
@@ -450,18 +438,10 @@
             list.innerHTML += `<div class="item-card" onclick="applySkin('${id}')"><div><b>${game.skins[id].e} ${game.skins[id][game.lang]}</b></div><span>${game.currentEmoji === game.skins[id].e ? '✅' : '🔘'}</span></div>`;
         }
     }
-    function renderDaily() {
-        const grid = document.getElementById('daily-grid'); grid.innerHTML = '';
-        const canClaim = Date.now() - game.lastDaily > 86400000;
-        for(let i=0; i<6; i++) grid.innerHTML += `<div style="background:var(--glass); padding:10px; border-radius:10px; text-align:center; border: 1px solid ${game.dailyStep===i?'var(--gold)':'transparent'}">${TRANSLATIONS[game.lang].day} ${i+1}<br>🎁</div>`;
-        document.getElementById('daily-claim-btn').disabled = !canClaim;
-    }
-    function claimDaily() {
-        game.coins += 5000 * (game.dailyStep + 1);
-        game.lastDaily = Date.now();
-        game.dailyStep = (game.dailyStep + 1) % 6;
-        showToast("ЗАБРАНО!"); renderDaily(); updateUI(); saveGame();
-    }
+
+    function applySkin(id) { game.currentEmoji = game.skins[id].e; document.getElementById('karas-node').innerText = game.currentEmoji; closeModal('wardrobe'); saveGame(); }
+    function applyPet(id) { game.currentPet = id; if(id) document.getElementById('pet-node').innerText = game.pets[id].e; closeModal('pets-menu'); updateUI(); saveGame(); }
+    
     function doPrestige() {
         let cost = Math.pow(game.eggs + 1, 4) * 200000;
         if(game.coins >= cost && confirm("ПРЕСТИЖ?")) {
@@ -471,15 +451,13 @@
         }
     }
 
-    // Авто-майнинг
-    setInterval(() => {
-        if(game.autoP > 0) {
-            let pM = game.currentPet ? game.pets[game.currentPet].bonus : 1;
-            let boost = (1 + (game.eggs * 0.7)) * eventMult;
-            game.coins += (game.autoP * game.mult * pM * boost) / 5;
-            updateUI();
-        }
-    }, 400);
+    function saveGame() { 
+        if(!currentUser) return;
+        let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
+        accounts[currentUser].data = game;
+        localStorage.setItem('karas_accounts', JSON.stringify(accounts));
+    }
+    function hardReset() { if(confirm("СБРОСИТЬ ВСЁ?")) { localStorage.clear(); location.reload(); } }
 
     // Пузырьки
     for(let i=0; i<15; i++) {
@@ -490,8 +468,39 @@
         b.style.animationDelay = Math.random() * 10 + 's';
         document.getElementById('ocean').appendChild(b);
     }
-    
-    window.onload = loadSession;
+
+    // Авто-майнинг
+    setInterval(() => {
+        if(game.autoP > 0) {
+            let pM = game.currentPet ? game.pets[game.currentPet].bonus : 1;
+            let boost = (1 + (game.eggs * 0.7)) * 3; // Ивент
+            game.coins += (game.autoP * game.mult * pM * boost);
+            updateUI();
+        }
+    }, 2000);
+
+    // Таймер ивентов
+    setInterval(() => {
+        let now = new Date();
+        let min = 59 - now.getMinutes();
+        let sec = 59 - now.getSeconds();
+        document.getElementById('event-timer').innerText = `${min}:${sec < 10 ? '0'+sec : sec}`;
+    }, 1000);
+
+    window.onload = () => {
+        let last = localStorage.getItem('karas_last_user');
+        if(last) {
+            let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
+            if(accounts[last]) {
+                currentUser = last;
+                game = accounts[last].data;
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('display-nick').innerText = last;
+                initPubNub();
+                initGame();
+            }
+        }
+    };
     setInterval(saveGame, 5000);
 </script>
 </body>
