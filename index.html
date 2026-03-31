@@ -227,11 +227,16 @@
         pubnub.addListener({
             message: (m) => {
                 const box = document.getElementById('chat-messages');
-                box.innerHTML += `<div class="msg"><b>${m.message.u}:</b> ${m.message.t}</div>`;
+                if(!box) return;
+                const msgEl = document.createElement('div');
+                msgEl.className = 'msg';
+                msgEl.innerHTML = `<b>${m.message.u}:</b> ${m.message.t}`;
+                box.appendChild(msgEl);
                 box.scrollTop = box.scrollHeight;
             },
             presence: (p) => {
-                document.getElementById('online-count').innerText = p.occupancy;
+                const count = document.getElementById('online-count');
+                if(count) count.innerText = p.occupancy;
             }
         });
     }
@@ -240,15 +245,17 @@
         const user = document.getElementById('auth-user').value.trim();
         const pass = document.getElementById('auth-pass').value.trim();
         if(!user || !pass) return alert("Заполни поля!");
+        
         let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
+        
         if(type === 'reg') {
             if(accounts[user]) return alert("Ник занят!");
             accounts[user] = { pass: pass, data: JSON.parse(JSON.stringify(DEFAULT_GAME)) };
             accounts[user].data.nick = user;
             localStorage.setItem('karas_accounts', JSON.stringify(accounts));
-            alert("Готово! Входи.");
+            alert("Регистрация успешна! Теперь войдите.");
         } else {
-            if(!accounts[user] || accounts[user].pass !== pass) return alert("Ошибка!");
+            if(!accounts[user] || accounts[user].pass !== pass) return alert("Неверный логин или пароль!");
             currentUser = user;
             game = accounts[user].data;
             localStorage.setItem('karas_last_user', user);
@@ -267,32 +274,37 @@
             const u = document.getElementById('verify-user').value;
             const p = document.getElementById('verify-pass').value;
             let accs = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
-            if(u === currentUser && accs[u].pass === p) {
+            if(u === currentUser && accs[u] && accs[u].pass === p) {
                 overlay.style.display = 'none';
                 if(action === 'logout') logout();
                 if(action === 'reset') hardReset();
-            } else { alert("Неверные данные!"); }
+            } else { alert("Ошибка верификации!"); }
         };
     }
 
     function logout() {
+        saveGame();
         localStorage.removeItem('karas_last_user');
         location.reload();
     }
 
     function sendChatMessage() {
         const input = document.getElementById('chat-input');
-        if(!input.value.trim() || !pubnub) return;
-        pubnub.publish({ channel: 'karas_global', message: { u: currentUser, t: input.value.trim() } });
+        if(!input.value.trim() || !pubnub || !currentUser) return;
+        pubnub.publish({ 
+            channel: 'karas_global', 
+            message: { u: currentUser, t: input.value.trim() } 
+        });
         input.value = '';
     }
 
     function updateAccCount() {
         let accs = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
-        document.getElementById('total-accounts').innerText = Object.keys(accs).length;
+        const accEl = document.getElementById('total-accounts');
+        if(accEl) accEl.innerText = Object.keys(accs).length;
     }
 
-    // --- ЛОГИКА КЕЙСОВ (ИСПРАВЛЕНО И ДОБАВЛЕНО) ---
+    // --- ЛОГИКА КЕЙСОВ ---
     function openBox(type) {
         if (game.coins >= game.boxPrices[type]) {
             game.coins -= game.boxPrices[type];
@@ -331,29 +343,25 @@
         let sId = skinKeys[Math.floor(Math.random()*skinKeys.length)];
 
         let cashback = 0;
-        let isPetNew = !game.pets[pId].b;
-        let isSkinNew = !game.skins[sId].b;
-
-        if(!isPetNew) cashback += game.boxPrices[openedBoxType] * 0.25;
-        if(!isSkinNew) cashback += game.boxPrices[openedBoxType] * 0.25;
+        if(game.pets[pId].b) cashback += game.boxPrices[openedBoxType] * 0.2;
+        if(game.skins[sId].b) cashback += game.boxPrices[openedBoxType] * 0.2;
 
         game.pets[pId].b = true;
         game.skins[sId].b = true;
         game.coins += cashback;
 
         let msg = `ВЫПАЛО: ${game.pets[pId].e} и ${game.skins[sId].e}`;
-        if(cashback > 0) msg += ` (+${format(cashback)} возврат)`;
+        if(cashback > 0) msg += ` (+${format(cashback)} монет за повтор)`;
         showToast(msg);
         saveGame();
     }
 
     // --- БАЗОВЫЕ ФУНКЦИИ ---
     function initGame() {
-        document.getElementById('karas-node').innerText = game.currentEmoji;
+        document.getElementById('karas-node').innerText = game.currentEmoji || "🐟";
         if(game.currentPet) document.getElementById('pet-node').innerText = game.pets[game.currentPet].e;
-        setLang(game.lang);
+        setLang(game.lang || 'ru');
         updateUI();
-        updateAccCount();
     }
 
     function format(n) {
@@ -382,7 +390,12 @@
         let boost = (1 + (game.eggs * 0.7)) * 3; 
         let gain = game.clickP * game.mult * boost * (isCrit ? 6 : 1);
         game.coins += gain; game.exp += gain;
-        if(game.exp >= game.lvl * 2000) { game.exp = 0; game.lvl++; showToast("LEVEL UP!"); }
+        
+        if(game.exp >= game.lvl * 2000) { 
+            game.exp = 0; game.lvl++; 
+            showToast("LEVEL UP!"); 
+        }
+        
         spawnPop(e.clientX, e.clientY, "+" + format(gain), isCrit);
         updateUI();
     };
@@ -397,7 +410,9 @@
     }
 
     function renderShop() {
-        const list = document.getElementById('shop-list'); list.innerHTML = '';
+        const list = document.getElementById('shop-list'); 
+        if(!list) return;
+        list.innerHTML = '';
         if(currentTab === 'u') {
             for(let id in game.items) {
                 let it = game.items[id];
@@ -421,7 +436,7 @@
             if(id === 'click') game.clickP += it.p; else game.autoP += it.p;
             it.cost = Math.round(it.cost * 1.7);
             updateUI(); renderShop(); saveGame();
-        }
+        } else { showToast("Недостаточно монет!"); }
     }
 
     const TRANSLATIONS = {
@@ -449,25 +464,35 @@
 
     function setLang(l) { game.lang = l; updateUI(); saveGame(); }
     function openModal(id) { 
-        document.getElementById(id + '-overlay').classList.add('active'); 
+        const el = document.getElementById(id + '-overlay');
+        if(el) el.classList.add('active'); 
         if(id === 'shop') renderShop();
         if(id === 'pets-menu') renderPets();
         if(id === 'wardrobe') renderWardrobe();
         if(id === 'daily') renderDaily();
         if(id === 'settings') updateAccCount();
     }
-    function closeModal(id) { document.getElementById(id + '-overlay').classList.remove('active'); }
+    function closeModal(id) { 
+        const el = document.getElementById(id + '-overlay');
+        if(el) el.classList.remove('active'); 
+    }
     function setTab(t) { currentTab = t; renderShop(); }
+    
     function showToast(txt) {
         const t = document.getElementById('game-toast');
+        if(!t) return;
         t.innerText = txt; t.classList.add('active');
         setTimeout(() => t.classList.remove('active'), 2500);
     }
 
     function renderDaily() {
-        const grid = document.getElementById('daily-grid'); grid.innerHTML = '';
+        const grid = document.getElementById('daily-grid'); 
+        if(!grid) return;
+        grid.innerHTML = '';
         const canClaim = Date.now() - game.lastDaily > 86400000;
-        for(let i=0; i<6; i++) grid.innerHTML += `<div style="background:var(--glass); padding:10px; border-radius:10px; text-align:center; border: 1px solid ${game.dailyStep===i?'var(--gold)':'transparent'}">День ${i+1}<br>🎁</div>`;
+        for(let i=0; i<6; i++) {
+            grid.innerHTML += `<div style="background:var(--glass); padding:10px; border-radius:10px; text-align:center; border: 1px solid ${game.dailyStep===i?'var(--gold)':'transparent'}">День ${i+1}<br>🎁</div>`;
+        }
         document.getElementById('daily-claim-btn').disabled = !canClaim;
     }
 
@@ -475,11 +500,13 @@
         game.coins += 5000 * (game.dailyStep + 1);
         game.lastDaily = Date.now();
         game.dailyStep = (game.dailyStep + 1) % 6;
-        showToast("ЗАБРАНО!"); renderDaily(); updateUI(); saveGame();
+        showToast("БОНУС ПОЛУЧЕН!"); renderDaily(); updateUI(); saveGame();
     }
 
     function renderPets() {
-        const list = document.getElementById('pets-list-content'); list.innerHTML = '';
+        const list = document.getElementById('pets-list-content'); 
+        if(!list) return;
+        list.innerHTML = '';
         for(let id in game.pets) {
             if(!game.pets[id].b) continue;
             list.innerHTML += `<div class="item-card" onclick="applyPet('${id}')"><div><b>${game.pets[id].e} ${game.pets[id][game.lang]}</b><br><small>x${game.pets[id].bonus}</small></div><span>${game.currentPet === id ? '✅' : '🔘'}</span></div>`;
@@ -487,34 +514,58 @@
     }
 
     function renderWardrobe() {
-        const list = document.getElementById('wardrobe-list'); list.innerHTML = '';
+        const list = document.getElementById('wardrobe-list'); 
+        if(!list) return;
+        list.innerHTML = '';
         for(let id in game.skins) {
             if(!game.skins[id].b) continue;
             list.innerHTML += `<div class="item-card" onclick="applySkin('${id}')"><div><b>${game.skins[id].e} ${game.skins[id][game.lang]}</b></div><span>${game.currentEmoji === game.skins[id].e ? '✅' : '🔘'}</span></div>`;
         }
     }
 
-    function applySkin(id) { game.currentEmoji = game.skins[id].e; document.getElementById('karas-node').innerText = game.currentEmoji; closeModal('wardrobe'); saveGame(); }
-    function applyPet(id) { game.currentPet = id; if(id) document.getElementById('pet-node').innerText = game.pets[id].e; closeModal('pets-menu'); updateUI(); saveGame(); }
+    function applySkin(id) { 
+        game.currentEmoji = game.skins[id].e; 
+        document.getElementById('karas-node').innerText = game.currentEmoji; 
+        closeModal('wardrobe'); saveGame(); 
+    }
+    
+    function applyPet(id) { 
+        game.currentPet = id; 
+        if(id) document.getElementById('pet-node').innerText = game.pets[id].e; 
+        closeModal('pets-menu'); updateUI(); saveGame(); 
+    }
     
     function doPrestige() {
         let cost = Math.pow(game.eggs + 1, 4) * 200000;
-        if(game.coins >= cost && confirm("ПРЕСТИЖ?")) {
+        if(game.coins >= cost && confirm("Вы уверены? Весь прогресс (кроме скинов и питомцев) будет сброшен!")) {
             game.eggs++; game.coins = 0; game.clickP = 1; game.autoP = 0; game.lvl = 1; game.exp = 0;
-            for(let k in game.items) { game.items[k].count = 0; game.items[k].cost = DEFAULT_GAME.items[k].cost; }
+            for(let k in game.items) { 
+                game.items[k].count = 0; 
+                game.items[k].cost = DEFAULT_GAME.items[k].cost; 
+            }
             saveGame(); location.reload();
+        } else if(game.coins < cost) {
+            showToast("Нужно больше монет!");
         }
     }
 
     function saveGame() { 
         if(!currentUser) return;
         let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
-        accounts[currentUser].data = game;
-        localStorage.setItem('karas_accounts', JSON.stringify(accounts));
+        if(accounts[currentUser]) {
+            accounts[currentUser].data = game;
+            localStorage.setItem('karas_accounts', JSON.stringify(accounts));
+        }
     }
-    function hardReset() { localStorage.clear(); location.reload(); }
 
-    function toggleAudio() { showToast("Музыка переключена!"); }
+    function hardReset() { 
+        if(confirm("УДАЛИТЬ ВСЕ АККАУНТЫ И ДАННЫЕ? Это действие нельзя отменить!")) {
+            localStorage.clear(); 
+            location.reload(); 
+        }
+    }
+
+    function toggleAudio() { showToast("Музыка скоро будет добавлена!"); }
 
     // Пузырьки
     for(let i=0; i<15; i++) {
@@ -539,7 +590,8 @@
         let now = new Date();
         let min = 59 - now.getMinutes();
         let sec = 59 - now.getSeconds();
-        document.getElementById('event-timer').innerText = `${min}:${sec < 10 ? '0'+sec : sec}`;
+        const timer = document.getElementById('event-timer');
+        if(timer) timer.innerText = `${min}:${sec < 10 ? '0'+sec : sec}`;
     }, 1000);
 
     window.onload = () => {
@@ -557,7 +609,9 @@
         }
         updateAccCount();
     };
-    setInterval(saveGame, 5000);
+
+    // Авто-сохранение каждые 10 секунд
+    setInterval(saveGame, 10000);
 </script>
 </body>
 </html>
