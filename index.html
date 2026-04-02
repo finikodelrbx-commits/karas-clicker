@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
+<head> 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KarasClicker: Evolution ONLINE</title>
-    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         :root {
             --accent: #00f2ff; --gold: #ffcc00; --bg: #01080f; --glass: rgba(255, 255, 255, 0.1); 
@@ -208,6 +208,20 @@
         }
     };
 
+    
+const SERVER_URL = "http://127.0.0.1:5000";
+    const socket = io(SERVER_URL);
+
+    socket.on('receive_msg', (data) => {
+        const box = document.getElementById('chat-messages');
+        if (!box) return;
+        const msgEl = document.createElement('div');
+        msgEl.className = 'msg';
+        const lvlTag = data.l ? `<small>[Lvl ${data.l}]</small> ` : "";
+        msgEl.innerHTML = `${lvlTag}<b>${data.u}:</b> ${data.t}`;
+        box.appendChild(msgEl);
+        box.scrollTop = box.scrollHeight;
+    });
     let game = JSON.parse(JSON.stringify(DEFAULT_GAME));
     let currentUser = null;
     let pubnub = null;
@@ -241,11 +255,36 @@
         });
     }
 
-    function handleAuth(type) {
+   async function handleAuth(type) {
         const user = document.getElementById('auth-user').value.trim();
         const pass = document.getElementById('auth-pass').value.trim();
         if(!user || !pass) return alert("Заполни поля!");
-        
+
+        const endpoint = type === 'reg' ? '/register' : '/login';
+        try {
+            const response = await fetch(SERVER_URL + endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: user,
+                    password: pass,
+                    game_data: JSON.stringify(DEFAULT_GAME)
+                })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                currentUser = user;
+                if (type === 'login' && result.game_data) game = JSON.parse(result.game_data);
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('display-nick').innerText = user;
+                initGame(); updateUI();
+            } else {
+                alert(result.message);
+            }
+        } catch (e) {
+            alert("Ошибка: Сервер Python не запущен!");
+        }
+    }        
         let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
         
         if(type === 'reg') {
@@ -287,17 +326,15 @@
         localStorage.removeItem('karas_last_user');
         location.reload();
     }
+function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    if(!input.value.trim() || !currentUser) return;
+    
+    // Проверь, есть ли эта строка:
+    socket.emit('send_msg', { u: currentUser, t: input.value.trim(), l: game.lvl });
 
-    function sendChatMessage() {
-        const input = document.getElementById('chat-input');
-        if(!input.value.trim() || !pubnub || !currentUser) return;
-        pubnub.publish({ 
-            channel: 'karas_global', 
-            message: { u: currentUser, t: input.value.trim() } 
-        });
-        input.value = '';
-    }
-
+    input.value = '';
+}
     function updateAccCount() {
         let accs = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
         const accEl = document.getElementById('total-accounts');
@@ -549,13 +586,23 @@
         }
     }
 
-    function saveGame() { 
-        if(!currentUser) return;
-        let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
-        if(accounts[currentUser]) {
-            accounts[currentUser].data = game;
-            localStorage.setItem('karas_accounts', JSON.stringify(accounts));
-        }
+ async function saveGame() {
+    if(!currentUser) return;
+    try {
+        await fetch(SERVER_URL + '/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                username: currentUser,
+                game_data: JSON.stringify(game)
+            })
+        });
+        console.log("Карась успешно сохранен в базу данных!");
+    } catch (e) {
+        console.error("Ошибка сохранения на сервер:", e);
+    }
+}        }
+    }        }
     }
 
     function hardReset() { 
@@ -594,24 +641,41 @@
         if(timer) timer.innerText = `${min}:${sec < 10 ? '0'+sec : sec}`;
     }, 1000);
 
+    // Инициализация при загрузке страницы
     window.onload = () => {
-        let last = localStorage.getItem('karas_last_user');
-        if(last) {
-            let accounts = JSON.parse(localStorage.getItem('karas_accounts') || '{}');
-            if(accounts[last]) {
-                currentUser = last;
-                game = accounts[last].data;
-                document.getElementById('auth-overlay').style.display = 'none';
-                document.getElementById('display-nick').innerText = last;
-                initPubNub();
-                initGame();
-            }
-        }
-        updateAccCount();
+        console.log("Игра готова. Ожидание входа через сервер...");
+        // Мы больше не грузим данные из localStorage, 
+        // так как сервер пришлет их после авторизации.
     };
 
-    // Авто-сохранение каждые 10 секунд
-    setInterval(saveGame, 10000);
+    // Главная функция сохранения (отправляет данные на Python)
+    async function saveGame() {
+        if(!currentUser) return;
+        try {
+            await fetch(SERVER_URL + '/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: currentUser,
+                    game_data: JSON.stringify(game)
+                })
+            });
+            console.log("Прогресс Карася сохранен в базу данных!");
+        } catch (e) {
+            console.warn("Сервер не отвечает, сохранение не удалось.");
+        }
+    }
+
+    // Авто-майнинг и авто-сохранение (раз в 30 секунд)
+    setInterval(() => {
+        if(game.autoP > 0) {
+            let pM = game.currentPet ? game.pets[game.currentPet].bonus : 1;
+            game.coins += (game.autoP * game.mult * pM);
+            updateUI();
+        }
+    }, 2000);
+
+    setInterval(saveGame, 30000);
 </script>
 </body>
 </html>
